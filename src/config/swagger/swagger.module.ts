@@ -4,9 +4,10 @@ import { INestApplication } from '@nestjs/common';
 import {
   createSwaggerConfig,
   getSwaggerDocumentUrl,
-  swaggerCustomOptions,
+  getSwaggerCustomOptions,
 } from './swagger.config';
 import { LoggerService } from '../logger/logger.service';
+import { EnvService } from '../env/env.service';
 
 @Module({})
 export class SwaggerModule {
@@ -17,13 +18,15 @@ export class SwaggerModule {
   static setup(app: INestApplication): void {
     // Get the logger service from the app
     const logger = app.get(LoggerService);
+    const envService = app.get(EnvService);
 
     try {
-      const config = createSwaggerConfig();
+      const config = createSwaggerConfig(envService);
       const document = NestSwaggerModule.createDocument(app, config);
-      const documentUrl = getSwaggerDocumentUrl();
+      const documentUrl = getSwaggerDocumentUrl(envService);
+      const customOptions = getSwaggerCustomOptions(envService);
 
-      NestSwaggerModule.setup(documentUrl, app, document, swaggerCustomOptions);
+      NestSwaggerModule.setup(documentUrl, app, document, customOptions);
 
       logger.log(
         `Swagger documentation available at /${documentUrl}`,

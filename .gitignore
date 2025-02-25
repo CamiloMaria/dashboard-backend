@@ -14,7 +14,9 @@ build/
 
 # Environment variables
 .env
-.env.* 
+.env.development
+.env.staging
+.env.production
 
 # Logs
 logs/
