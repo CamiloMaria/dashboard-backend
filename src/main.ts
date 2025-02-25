@@ -25,11 +25,14 @@ async function bootstrap() {
   // Setup Swagger using environment variables
   SwaggerModule.setup(app);
 
+  const globalPrefix = process.env.GLOBAL_PREFIX || 'api';
+  app.setGlobalPrefix(globalPrefix);
+
   // Start the server
   const port = process.env.PORT || 3000;
   await app.listen(port);
   logger.log(
-    `Application is running on: http://localhost:${port}`,
+    `Application is running on: http://localhost:${port}/${globalPrefix}`,
     'Bootstrap',
   );
 }
