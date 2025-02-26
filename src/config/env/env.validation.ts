@@ -59,33 +59,6 @@ export const envValidationSchema = Joi.object({
     .description('Shopilama database password'),
   SHOP_DATABASE: Joi.string().required().description('Shopilama database name'),
 
-  // TypeORM Configuration
-  DB_TYPE: Joi.string()
-    .valid('mysql', 'postgres', 'sqlite', 'mariadb', 'mssql')
-    .default('mysql')
-    .description('Database type for TypeORM'),
-  DB_HOST: Joi.string()
-    .default('localhost')
-    .description('Database host for TypeORM'),
-  DB_PORT: Joi.number()
-    .port()
-    .default(3306)
-    .description('Database port for TypeORM'),
-  DB_USERNAME: Joi.string().description('Database username for TypeORM'),
-  DB_PASSWORD: Joi.string().description('Database password for TypeORM'),
-  DB_DATABASE: Joi.string().required().description('Database name for TypeORM'),
-  DB_SYNCHRONIZE: Joi.boolean()
-    .default(false)
-    .description(
-      'Whether to synchronize database schema automatically (WARNING: not recommended for production)',
-    ),
-  DB_LOGGING: Joi.boolean()
-    .default(true)
-    .description('Whether to enable database query logging'),
-  DB_AUTO_LOAD_ENTITIES: Joi.boolean()
-    .default(true)
-    .description('Whether to automatically load entities'),
-
   // Database - Secondary
   HOST_36: Joi.string().required().description('Secondary database host'),
   USERNAME_36: Joi.string()

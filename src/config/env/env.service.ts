@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ConfigKeys } from './env.constants';
+import { OracleConnectionOptions } from 'typeorm/driver/oracle/OracleConnectionOptions';
+import { MysqlConnectionOptions } from 'typeorm/driver/mysql/MysqlConnectionOptions';
 
 /**
  * Service for type-safe access to environment variables
@@ -63,7 +65,7 @@ export class EnvService {
   }
 
   get shopPort(): number {
-    return this.configService.get<number>(ConfigKeys.SHOP_PORT);
+    return +this.configService.get<number>(ConfigKeys.SHOP_PORT);
   }
 
   get shopUsername(): string {
@@ -155,31 +157,41 @@ export class EnvService {
   }
 
   // Helper methods for database connection configs
-  getShopDatabaseConfig() {
+  getShopDatabaseConfig(): MysqlConnectionOptions {
     return {
+      type: 'mysql',
       host: this.shopHost,
       port: this.shopPort,
       username: this.shopUsername,
       password: this.shopPassword,
       database: this.shopDatabase,
+      synchronize: false,
+      logging: this.environment === 'development',
+      entities: ['dist/**/*.entity{.ts,.js}'],
     };
   }
 
-  getSecondary36DatabaseConfig() {
+  getIntranet36DatabaseConfig(): MysqlConnectionOptions {
     return {
+      type: 'mysql',
       host: this.host36,
       username: this.username36,
       password: this.password36,
       database: this.database36,
+      synchronize: false,
+      logging: this.environment === 'development',
+      entities: ['dist/**/*.entity{.ts,.js}'],
     };
   }
 
-  getOracleDatabaseConfig() {
+  getOracleDatabaseConfig(): OracleConnectionOptions {
     return {
+      type: 'oracle',
       username: this.oracleUsername,
       password: this.oraclePassword,
-      dbLink: this.dbLink,
-      connectionString: this.oracleConnString,
+      connectString: this.oracleConnString,
+      synchronize: false,
+      logging: this.environment === 'development',
     };
   }
 }

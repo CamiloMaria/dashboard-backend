@@ -7,6 +7,7 @@ import { LoggerService } from '../logger/logger.service';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
+      name: 'shop',
       useFactory: (envService: EnvService, logger: LoggerService) => {
         const config = envService.getShopDatabaseConfig();
         logger.log(
@@ -16,6 +17,29 @@ import { LoggerService } from '../logger/logger.service';
         return config;
       },
       inject: [EnvService, LoggerService],
+    }),
+    TypeOrmModule.forRootAsync({
+      name: 'intranet36',
+      useFactory: (envService: EnvService, logger: LoggerService) => {
+        const config = envService.getIntranet36DatabaseConfig();
+        logger.log(
+          `TypeORM connected to ${config.database} database`,
+          'DatabaseModule',
+        );
+        return config;
+      },
+      inject: [EnvService, LoggerService],
+    }),
+    TypeOrmModule.forRootAsync({
+      name: 'oracle',
+      useFactory: (envService: EnvService, logger: LoggerService) => {
+        const config = envService.getOracleDatabaseConfig();
+        logger.log(
+          `TypeORM connected to ${config.database} database`,
+          'DatabaseModule',
+        );
+        return config;
+      },
     }),
   ],
 })
