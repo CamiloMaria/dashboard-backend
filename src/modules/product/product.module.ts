@@ -11,6 +11,7 @@ import {
 } from './entities/shop';
 import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
+import { ProductMapper } from './mappers/product.mapper';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { ProductService } from './services/product.service';
     ),
   ],
   controllers: [ProductController],
-  providers: [ProductService],
+  providers: [ProductService, ProductMapper],
   exports: [TypeOrmModule],
 })
 export class ProductModule {}
