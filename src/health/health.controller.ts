@@ -6,8 +6,8 @@ import {
   HealthIndicatorResult,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
-import { InjectConnection } from '@nestjs/typeorm';
-import { Connection } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
 /**
  * Controller for health check endpoints
@@ -17,9 +17,9 @@ export class HealthController {
   constructor(
     private health: HealthCheckService,
     private db: TypeOrmHealthIndicator,
-    @InjectConnection('shop') private shopConnection: Connection,
-    @InjectConnection('intranet36') private intranet36Connection: Connection,
-    @InjectConnection('oracle') private oracleConnection: Connection,
+    @InjectDataSource('shop') private shopConnection: DataSource,
+    @InjectDataSource('intranet36') private intranet36Connection: DataSource,
+    @InjectDataSource('oracle') private oracleConnection: DataSource,
   ) {}
 
   /**
