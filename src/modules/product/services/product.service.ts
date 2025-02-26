@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindOptionsWhere } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { ProductMapper } from '../mappers/product.mapper';
+import { PaginationMeta } from '../../../config/swagger/response.schema';
+import { ProductFilterDto } from '../dto/product-filter.dto';
 
 @Injectable()
 export class ProductService {
@@ -13,6 +15,79 @@ export class ProductService {
     private readonly productRepository: Repository<WebProduct>,
     private readonly productMapper: ProductMapper,
   ) {}
+
+  /**
+   * Fetch products with pagination and search filters
+   * @param filterDto Filter and pagination parameters
+   * @returns Array of products with related data and pagination metadata
+   */
+  async findAllPaginated(
+    filterDto: ProductFilterDto,
+  ): Promise<{ items: ProductResponseDto[]; meta: PaginationMeta }> {
+    const { page = 1, limit = 10, sku, title, matnr } = filterDto;
+
+    // Ensure valid pagination parameters
+    const validPage = page > 0 ? page : 1;
+    const validLimit = limit > 0 ? limit : 10;
+
+    // Calculate offset
+    const offset = (validPage - 1) * validLimit;
+
+    // Build where conditions for search
+    const whereConditions: FindOptionsWhere<WebProduct> = {};
+
+    // Add search filters if provided
+    if (sku) {
+      whereConditions.sku = sku;
+    }
+
+    if (title) {
+      whereConditions.title = Like(`%${title}%`);
+    }
+
+    if (matnr) {
+      whereConditions.matnr = matnr;
+    }
+
+    // Get total count of active products matching the search criteria
+    const totalItems = await this.productRepository.count({
+      where: whereConditions,
+    });
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalItems / validLimit);
+
+    // Find products matching the search criteria with pagination
+    const products = await this.productRepository.find({
+      where: whereConditions,
+      relations: ['images', 'catalogs'],
+      skip: offset,
+      take: validLimit,
+    });
+
+    if (!products || products.length === 0) {
+      throw new NotFoundException(
+        'No products found matching your search criteria',
+      );
+    }
+
+    // Map database entities to response DTOs
+    const items = await Promise.all(
+      products.map((product) => this.productMapper.mapToDto(product)),
+    );
+
+    // Create pagination metadata
+    const meta: PaginationMeta = {
+      currentPage: validPage,
+      itemsPerPage: validLimit,
+      totalItems,
+      totalPages,
+      hasNextPage: validPage < totalPages,
+      hasPreviousPage: validPage > 1,
+    };
+
+    return { items, meta };
+  }
 
   /**
    * Fetch all products with their related images and inventory

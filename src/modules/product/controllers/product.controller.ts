@@ -5,11 +5,16 @@ import {
   ParseIntPipe,
   HttpException,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { ProductResponseDto } from '../dto/product-response.dto';
-import { BaseResponse } from '../../../config/swagger/response.schema';
+import { ProductFilterDto } from '../dto/product-filter.dto';
+import {
+  BaseResponse,
+  PaginatedResponse,
+} from '../../../config/swagger/response.schema';
 
 @ApiTags('Products')
 @Controller('products')
@@ -17,11 +22,11 @@ export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all products' })
+  @ApiOperation({ summary: 'Get all products with pagination and search' })
   @ApiResponse({
     status: 200,
     description: 'Products retrieved successfully',
-    type: () => BaseResponse<ProductResponseDto[]>,
+    type: () => PaginatedResponse<ProductResponseDto>,
   })
   @ApiResponse({
     status: 404,
@@ -33,13 +38,18 @@ export class ProductController {
     description: 'Internal server error',
     type: () => BaseResponse<null>,
   })
-  async findAll(): Promise<BaseResponse<ProductResponseDto[]>> {
+  async findAll(
+    @Query() filterDto: ProductFilterDto,
+  ): Promise<PaginatedResponse<ProductResponseDto>> {
     try {
-      const products = await this.productService.findAll();
+      const { items, meta } =
+        await this.productService.findAllPaginated(filterDto);
+
       return {
         success: true,
         message: 'Products retrieved successfully',
-        data: products,
+        data: items,
+        meta,
       };
     } catch (error) {
       if (error instanceof HttpException) {
