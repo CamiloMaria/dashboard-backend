@@ -20,10 +20,10 @@ export class WebCatalog {
   @PrimaryGeneratedColumn('increment')
   id: number;
 
-  @Column({ length: 20 })
+  @Column('varchar', { length: 20 })
   sku: string;
 
-  @Column({ length: 6 })
+  @Column('varchar', { length: 6 })
   pl: string;
 
   @Column('decimal', { precision: 10, scale: 2, nullable: true })
@@ -32,37 +32,34 @@ export class WebCatalog {
   @Column('decimal', { precision: 10, scale: 2, nullable: true })
   compare_price: number;
 
-  @Column({ type: 'int', nullable: true })
+  @Column('int', { nullable: true })
   stock: number;
 
-  @Column({
-    type: 'tinyint',
+  @Column('tinyint', {
     default: 1,
     comment: '0 if is disabled and 1 if not',
   })
   status: number;
 
-  @Column({
-    type: 'tinyint',
-    width: 1,
+  @Column('tinyint', {
     default: 0,
     comment:
       'Aqui se identifica si el catalogo esta tiene un promocion en web_products_promotions',
   })
   in_promotion: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column('tinyint', { default: 0 })
   in_set: boolean;
 
   @CreateDateColumn({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @UpdateDateColumn({ nullable: true })
+  @UpdateDateColumn({ type: 'datetime', nullable: true })
   update_at: Date;
 
   @ManyToOne(() => WebProduct, (product) => product.catalogs, {
     onDelete: 'CASCADE', // This reflects the ON DELETE CASCADE constraint
   })
-  @JoinColumn({ name: 'sku' }) // The foreign key column
+  @JoinColumn({ name: 'sku', referencedColumnName: 'sku' }) // The foreign key column
   product: Relation<WebProduct>;
 }

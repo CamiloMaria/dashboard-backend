@@ -27,10 +27,10 @@ export class WebProductGroup {
   @Column({ length: 45, nullable: true })
   cat_app: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column('text', { nullable: true })
   shops_stock: string;
 
-  @Column({ type: 'int', width: 1, default: 1 })
+  @Column('int', { width: 1, default: 1 })
   status: number;
 
   @Column({ length: 45, nullable: true })
@@ -48,7 +48,7 @@ export class WebProductGroup {
   @Column({ length: 10, nullable: true })
   level3_instaleap: string;
 
-  @Column({ type: 'int', default: 0 })
+  @Column('int', { default: 0 })
   bigItems: number;
 
   @Column({ length: 1, default: 'T' })

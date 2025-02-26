@@ -125,6 +125,9 @@ export class WebProduct {
   @Column({ type: 'longtext', nullable: true })
   search_keywords: string;
 
+  @Column({ type: 'mediumtext', nullable: true })
+  specifications: string;
+
   @Column({ type: 'text', nullable: true })
   slug: string;
 

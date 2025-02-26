@@ -167,7 +167,7 @@ export class EnvService {
       database: this.shopDatabase,
       synchronize: false,
       logging: this.environment === 'development',
-      entities: ['dist/**/*.entity{.ts,.js}'],
+      entities: ['dist/**/entities/shop/*.entity{.ts,.js}'],
     };
   }
 
@@ -180,7 +180,7 @@ export class EnvService {
       database: this.database36,
       synchronize: false,
       logging: this.environment === 'development',
-      entities: ['dist/**/*.entity{.ts,.js}'],
+      entities: ['dist/**/entities/intranet/*.entity{.ts,.js}'],
     };
   }
 
@@ -192,7 +192,7 @@ export class EnvService {
       connectString: this.oracleConnString,
       synchronize: false,
       logging: this.environment === 'development',
-      entities: ['dist/**/*.entity{.ts,.js}'],
+      entities: ['dist/**/entities/oracle/*.entity{.ts,.js}'],
       thickMode: true,
     };
   }

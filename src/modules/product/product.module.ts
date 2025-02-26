@@ -1,18 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WebProduct } from './entities/web-product.entity';
-import { WebProductImage } from './entities/web-product-image.entity';
-import { WebProductGroup } from './entities/web-product-group.entity';
-import { WebCatalog } from './entities/web-catalog.entity';
+import {
+  WebCatalog,
+  WebProduct,
+  WebProductGroup,
+  WebProductImage,
+  WebProductPromo,
+  WebPromo,
+} from './entities/shop';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      WebProduct,
-      WebProductImage,
-      WebProductGroup,
-      WebCatalog,
-    ]),
+    TypeOrmModule.forFeature(
+      [
+        WebProduct,
+        WebProductImage,
+        WebProductGroup,
+        WebCatalog,
+        WebPromo,
+        WebProductPromo,
+      ],
+      'shop',
+    ),
   ],
   controllers: [],
   providers: [],
