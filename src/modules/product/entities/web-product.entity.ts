@@ -9,6 +9,7 @@ import {
   Relation,
 } from 'typeorm';
 import { WebProductImage } from './web-product-image.entity';
+import { WebCatalog } from './web-catalog.entity';
 
 /**
  * Entity representing products in the web shop system
@@ -138,4 +139,9 @@ export class WebProduct {
     cascade: true, // Appropriate for ON DELETE CASCADE constraint
   })
   images: Relation<WebProductImage[]>;
+
+  @OneToMany(() => WebCatalog, (catalog) => catalog.product, {
+    cascade: true, // Appropriate for ON DELETE CASCADE constraint
+  })
+  catalogs: Relation<WebCatalog[]>;
 }
