@@ -45,6 +45,27 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Product Module
+
+The Product module allows querying and retrieving products from the database with pagination and filtering capabilities. It provides endpoints for:
+
+- Retrieving all products with pagination
+- Filtering products by SKU, title, and material number
+- Retrieving a specific product by ID
+
+### API Endpoints
+
+- `GET /products` - Retrieves all products with pagination and search options
+
+  - Query parameters:
+    - `page` - Page number (default: 1)
+    - `limit` - Items per page (default: 10)
+    - `sku` - Filter by exact SKU match
+    - `title` - Filter by partial title match
+    - `matnr` - Filter by exact material number match
+
+- `GET /products/:id` - Retrieves a specific product by ID
+
 ## Run tests
 
 ```bash
@@ -56,7 +77,30 @@ $ npm run test:e2e
 
 # test coverage
 $ npm run test:cov
+
+# run only product module tests
+$ npm run test:product
+
+# run only product e2e tests
+$ npm run test:product:e2e
 ```
+
+### Testing Strategy
+
+The project uses a comprehensive testing approach:
+
+1. **Unit Tests**: Test individual components in isolation with mocked dependencies
+
+   - Service tests: Verify business logic, database interactions, and error handling
+   - Controller tests: Verify API request/response handling
+
+2. **Integration Tests**: Test component interactions within a module
+
+   - Verify proper communication between controllers, services, and repositories
+
+3. **E2E Tests**: Test the API from an end-user perspective
+   - Validate API contracts, parameter validation, and response structure
+   - Test search functionality and pagination
 
 ## Deployment
 

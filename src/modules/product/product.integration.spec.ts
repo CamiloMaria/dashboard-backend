@@ -1,13 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import request from 'supertest';
 import { ProductModule } from './product.module';
 import { ProductService } from './services/product.service';
 import { ProductMapper } from './mappers/product.mapper';
 import { ProductResponseDto } from './dto/product-response.dto';
-import { WebProduct } from './entities/shop/web-product.entity';
 import { DatabaseConnection } from '../../config/database/constants';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import {
+  WebCatalog,
+  WebProduct,
+  WebProductGroup,
+  WebProductImage,
+  WebProductPromo,
+  WebPromo,
+} from './entities/shop';
 
 // Mock repositories
 const mockRepository = {
@@ -28,21 +35,39 @@ const mockMapper = {
   }),
 };
 
+// Helper function to create a testing module with all repositories mocked
+function createTestingModule() {
+  return Test.createTestingModule({
+    imports: [ProductModule],
+  })
+    .overrideProvider(ProductMapper)
+    .useValue(mockMapper)
+    .overrideProvider(getRepositoryToken(WebProduct, DatabaseConnection.SHOP))
+    .useValue(mockRepository)
+    .overrideProvider(
+      getRepositoryToken(WebProductImage, DatabaseConnection.SHOP),
+    )
+    .useValue(mockRepository)
+    .overrideProvider(
+      getRepositoryToken(WebProductGroup, DatabaseConnection.SHOP),
+    )
+    .useValue(mockRepository)
+    .overrideProvider(getRepositoryToken(WebCatalog, DatabaseConnection.SHOP))
+    .useValue(mockRepository)
+    .overrideProvider(getRepositoryToken(WebPromo, DatabaseConnection.SHOP))
+    .useValue(mockRepository)
+    .overrideProvider(
+      getRepositoryToken(WebProductPromo, DatabaseConnection.SHOP),
+    )
+    .useValue(mockRepository);
+}
+
 describe('Product Module Integration Tests', () => {
   let app: INestApplication;
   let productService: ProductService;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [ProductModule],
-    })
-      .overrideProvider(
-        TypeOrmModule.forFeature([WebProduct], DatabaseConnection.SHOP),
-      )
-      .useValue(mockRepository)
-      .overrideProvider(ProductMapper)
-      .useValue(mockMapper)
-      .compile();
+    const moduleFixture: TestingModule = await createTestingModule().compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
