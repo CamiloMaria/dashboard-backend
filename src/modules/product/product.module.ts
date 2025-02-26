@@ -9,6 +9,8 @@ import {
   WebProductPromo,
   WebPromo,
 } from './entities/shop';
+import { ProductController } from './controllers/product.controller';
+import { ProductService } from './services/product.service';
 
 @Module({
   imports: [
@@ -24,8 +26,8 @@ import {
       DatabaseConnection.SHOP,
     ),
   ],
-  controllers: [],
-  providers: [],
+  controllers: [ProductController],
+  providers: [ProductService],
   exports: [TypeOrmModule],
 })
 export class ProductModule {}
