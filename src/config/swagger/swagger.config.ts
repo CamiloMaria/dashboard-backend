@@ -14,21 +14,19 @@ export function createSwaggerConfig(envService: EnvService) {
 
   // Add server information based on environment
   const environment = envService.environment;
+  const globalPrefix = envService.globalPrefix;
   const port = envService.port;
 
   if (environment === 'development') {
-    builder.addServer(`http://localhost:${port}`, 'Development Server');
+    builder.addServer(
+      `http://localhost:${port}/${globalPrefix}`,
+      'Development Server',
+    );
   } else if (environment === 'staging') {
     builder.addServer('https://staging-api.example.com', 'Staging Server');
   } else if (environment === 'production') {
     builder.addServer('https://api.example.com', 'Production Server');
   }
-
-  // Add tags for API categorization
-  builder.addTag('auth', 'Authentication endpoints');
-  builder.addTag('users', 'User management endpoints');
-  builder.addTag('products', 'Product management endpoints');
-  builder.addTag('orders', 'Order management endpoints');
 
   return builder.build();
 }
