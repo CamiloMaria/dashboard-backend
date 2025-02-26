@@ -34,12 +34,10 @@ import { LoggerService } from '../logger/logger.service';
       name: 'oracle',
       useFactory: (envService: EnvService, logger: LoggerService) => {
         const config = envService.getOracleDatabaseConfig();
-        logger.log(
-          `TypeORM connected to ${config.database} database`,
-          'DatabaseModule',
-        );
+        logger.log('TypeORM connected to SAP database', 'DatabaseModule');
         return config;
       },
+      inject: [EnvService, LoggerService],
     }),
   ],
 })

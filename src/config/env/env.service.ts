@@ -192,6 +192,8 @@ export class EnvService {
       connectString: this.oracleConnString,
       synchronize: false,
       logging: this.environment === 'development',
+      entities: ['dist/**/*.entity{.ts,.js}'],
+      thickMode: true,
     };
   }
 }
