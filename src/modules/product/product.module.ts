@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DatabaseConnection } from '../../config/database/constants';
 import {
   WebCatalog,
   WebProduct,
@@ -20,7 +21,7 @@ import {
         WebPromo,
         WebProductPromo,
       ],
-      'shop',
+      DatabaseConnection.SHOP,
     ),
   ],
   controllers: [],
