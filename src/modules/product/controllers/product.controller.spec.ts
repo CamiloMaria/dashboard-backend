@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { ProductController } from './product.controller';
 import { ProductService } from '../services/product.service';
+import { ResponseService } from '../../../common/services/response.service';
 import { ProductFilterDto } from '../dto/product-filter.dto';
 import { PaginationMeta } from '../../../config/swagger/response.schema';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -49,15 +50,41 @@ const mockPaginationMeta: PaginationMeta = {
   hasPreviousPage: false,
 };
 
-// Mock service
+// Mock services
 const mockProductService = () => ({
   findAllPaginated: jest.fn(),
   findById: jest.fn(),
 });
 
+const mockResponseService = () => ({
+  success: jest.fn((data, message) => ({
+    success: true,
+    message,
+    data,
+  })),
+  paginate: jest.fn((data, total, page, limit, message) => ({
+    success: true,
+    message,
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  })),
+  error: jest.fn((message, errorCode, meta) => ({
+    success: false,
+    message,
+    error: errorCode,
+    ...(meta && { meta }),
+  })),
+});
+
 describe('ProductController', () => {
   let controller: ProductController;
-  let service: ProductService;
+  let productService: ProductService;
+  let responseService: ResponseService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -67,11 +94,16 @@ describe('ProductController', () => {
           provide: ProductService,
           useFactory: mockProductService,
         },
+        {
+          provide: ResponseService,
+          useFactory: mockResponseService,
+        },
       ],
     }).compile();
 
     controller = module.get<ProductController>(ProductController);
-    service = module.get<ProductService>(ProductService);
+    productService = module.get<ProductService>(ProductService);
+    responseService = module.get<ResponseService>(ResponseService);
   });
 
   it('should be defined', () => {
@@ -92,20 +124,34 @@ describe('ProductController', () => {
       };
 
       jest
-        .spyOn(service, 'findAllPaginated')
+        .spyOn(productService, 'findAllPaginated')
         .mockResolvedValue(serviceResponse);
+
+      const expectedResponse = {
+        success: true,
+        message: 'Products retrieved successfully',
+        data: serviceResponse.items,
+        meta: {
+          total: mockPaginationMeta.totalItems,
+          page: mockPaginationMeta.currentPage,
+          limit: mockPaginationMeta.itemsPerPage,
+          totalPages: mockPaginationMeta.totalPages,
+        },
+      };
 
       // Act
       const result = await controller.findAll(filterDto);
 
       // Assert
-      expect(service.findAllPaginated).toHaveBeenCalledWith(filterDto);
-      expect(result).toEqual({
-        success: true,
-        message: 'Products retrieved successfully',
-        data: serviceResponse.items,
-        meta: serviceResponse.meta,
-      });
+      expect(productService.findAllPaginated).toHaveBeenCalledWith(filterDto);
+      expect(responseService.paginate).toHaveBeenCalledWith(
+        serviceResponse.items,
+        serviceResponse.meta.totalItems,
+        serviceResponse.meta.currentPage,
+        serviceResponse.meta.itemsPerPage,
+        'Products retrieved successfully',
+      );
+      expect(result).toEqual(expectedResponse);
     });
 
     it('should handle NotFoundException from service', async () => {
@@ -118,7 +164,7 @@ describe('ProductController', () => {
       const error = new NotFoundException(
         'No products found matching your search criteria',
       );
-      jest.spyOn(service, 'findAllPaginated').mockRejectedValue(error);
+      jest.spyOn(productService, 'findAllPaginated').mockRejectedValue(error);
 
       // Act & Assert
       await expect(controller.findAll(filterDto)).rejects.toThrow(
@@ -134,7 +180,7 @@ describe('ProductController', () => {
       };
 
       const error = new Error('Database connection error');
-      jest.spyOn(service, 'findAllPaginated').mockRejectedValue(error);
+      jest.spyOn(productService, 'findAllPaginated').mockRejectedValue(error);
 
       // Act
       try {
@@ -157,18 +203,24 @@ describe('ProductController', () => {
     it('should return a single product with success response', async () => {
       // Arrange
       const productId = 1;
-      jest.spyOn(service, 'findById').mockResolvedValue(mockProduct);
+      jest.spyOn(productService, 'findById').mockResolvedValue(mockProduct);
+
+      const expectedResponse = {
+        success: true,
+        message: 'Product retrieved successfully',
+        data: mockProduct,
+      };
 
       // Act
       const result = await controller.findOne(productId);
 
       // Assert
-      expect(service.findById).toHaveBeenCalledWith(productId);
-      expect(result).toEqual({
-        success: true,
-        message: 'Product retrieved successfully',
-        data: mockProduct,
-      });
+      expect(productService.findById).toHaveBeenCalledWith(productId);
+      expect(responseService.success).toHaveBeenCalledWith(
+        mockProduct,
+        'Product retrieved successfully',
+      );
+      expect(result).toEqual(expectedResponse);
     });
 
     it('should handle NotFoundException from service', async () => {
@@ -177,7 +229,7 @@ describe('ProductController', () => {
       const error = new NotFoundException(
         `Product with ID ${productId} not found`,
       );
-      jest.spyOn(service, 'findById').mockRejectedValue(error);
+      jest.spyOn(productService, 'findById').mockRejectedValue(error);
 
       // Act & Assert
       await expect(controller.findOne(productId)).rejects.toThrow(
@@ -189,7 +241,7 @@ describe('ProductController', () => {
       // Arrange
       const productId = 1;
       const error = new Error('Database connection error');
-      jest.spyOn(service, 'findById').mockRejectedValue(error);
+      jest.spyOn(productService, 'findById').mockRejectedValue(error);
 
       // Act
       try {
