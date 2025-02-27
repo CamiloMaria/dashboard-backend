@@ -15,11 +15,15 @@ import {
   BaseResponse,
   PaginatedResponse,
 } from '../../../config/swagger/response.schema';
+import { ResponseService } from '../../../common/services/response.service';
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -40,19 +44,17 @@ export class ProductController {
     description: 'Internal server error',
     type: () => BaseResponse<null>,
   })
-  async findAll(
-    @Query() filterDto: ProductFilterDto,
-  ): Promise<PaginatedResponse<ProductResponseDto>> {
+  async findAll(@Query() filterDto: ProductFilterDto) {
     try {
       const { items, meta } =
         await this.productService.findAllPaginated(filterDto);
-
-      return {
-        success: true,
-        message: 'Products retrieved successfully',
-        data: items,
-        meta,
-      };
+      return this.responseService.paginate(
+        items,
+        meta.totalItems,
+        meta.currentPage,
+        meta.itemsPerPage,
+        'Products retrieved successfully',
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -86,16 +88,13 @@ export class ProductController {
     description: 'Internal server error',
     type: () => BaseResponse<null>,
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<BaseResponse<ProductResponseDto>> {
+  async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
       const product = await this.productService.findById(id);
-      return {
-        success: true,
-        message: 'Product retrieved successfully',
-        data: product,
-      };
+      return this.responseService.success(
+        product,
+        'Product retrieved successfully',
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

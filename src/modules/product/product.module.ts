@@ -12,6 +12,7 @@ import {
 import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
 import { ProductMapper } from './mappers/product.mapper';
+import { ResponseService } from '../../common/services/response.service';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { ProductMapper } from './mappers/product.mapper';
     ),
   ],
   controllers: [ProductController],
-  providers: [ProductService, ProductMapper],
+  providers: [ProductService, ProductMapper, ResponseService],
   exports: [TypeOrmModule],
 })
 export class ProductModule {}

@@ -16,6 +16,7 @@ import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { ResponseService } from '../../common/services/response.service';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { RolesGuard } from './guards/roles.guard';
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
+    ResponseService,
   ],
   exports: [AuthService, PermissionsService, JwtAuthGuard, RolesGuard],
 })

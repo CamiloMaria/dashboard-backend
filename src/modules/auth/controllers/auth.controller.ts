@@ -4,7 +4,6 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  UseInterceptors,
   ValidationPipe,
   UseGuards,
   Get,
@@ -25,11 +24,11 @@ import { AuthService } from '../services/auth.service';
 import { LoginDto } from '../dto/login.dto';
 import { UserLoginResponseDto } from '../dto/auth-response.dto';
 import { BaseResponse } from '../../../config/swagger/response.schema';
-import { ResponseTransformInterceptor } from '../../../common/interceptors/response-transform.interceptor';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { RequirePages } from '../guards/roles.guard';
 import { Public } from '../decorators/public.decorator';
+import { ResponseService } from '../../../common/services/response.service';
 
 // Define the type for authenticated request
 interface RequestWithUser extends ExpressRequest {
@@ -46,9 +45,11 @@ interface RequestWithUser extends ExpressRequest {
  */
 @ApiTags('Authentication')
 @Controller('auth')
-@UseInterceptors(ResponseTransformInterceptor)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   /**
    * A protected endpoint that requires authentication and specific page permissions

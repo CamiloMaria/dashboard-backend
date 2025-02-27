@@ -4,6 +4,7 @@ import { LoggerModule, EnvModule, DatabaseModule } from './config';
 import { HealthModule, ProductModule } from './modules';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_PROVIDERS } from './app.provider';
+import { ResponseService } from './common/services/response.service';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { APP_PROVIDERS } from './app.provider';
     HealthModule,
     AuthModule,
   ],
-  providers: [...APP_PROVIDERS],
+  controllers: [],
+  providers: [...APP_PROVIDERS, ResponseService],
 })
 export class AppModule {}
