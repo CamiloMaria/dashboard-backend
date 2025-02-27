@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { ProductMapper } from '../mappers/product.mapper';
 import { WebProduct } from '../entities/shop/web-product.entity';
@@ -14,8 +14,6 @@ const mockProduct = {
   num: 1,
   sku: '7460170355288',
   title: 'Test Product',
-  price: 100.5,
-  compare_price: 125.0,
   matnr: '123456',
   images: [],
   catalogs: [],
@@ -26,8 +24,6 @@ const mockResponseDto = {
   id: 1,
   sku: '7460170355288',
   title: 'Test Product',
-  price: 100.5,
-  compare_price: 125.0,
   material: '123456',
   images: [],
   inventory: [],
@@ -134,7 +130,7 @@ describe('ProductService', () => {
       });
     });
 
-    it('should throw NotFoundException when no products are found', async () => {
+    it('should throw HttpException when no products are found', async () => {
       // Arrange
       const filterDto: ProductFilterDto = { page: 1, limit: 10 };
 
@@ -142,36 +138,141 @@ describe('ProductService', () => {
       jest.spyOn(repository, 'find').mockResolvedValue([]);
 
       // Act & Assert
-      await expect(service.findAllPaginated(filterDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      try {
+        await service.findAllPaginated(filterDto);
+        fail('should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
+        expect(error.getResponse()).toEqual({
+          success: false,
+          message: 'No products found matching your search criteria',
+          error: 'NOT_FOUND',
+        });
+      }
+    });
+
+    it('should wrap database errors in HttpException', async () => {
+      // Arrange
+      const filterDto: ProductFilterDto = { page: 1, limit: 10 };
+      const dbError = new Error('Database connection error');
+
+      jest.spyOn(repository, 'count').mockRejectedValue(dbError);
+
+      // Act & Assert
+      try {
+        await service.findAllPaginated(filterDto);
+        fail('should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(error.getResponse()).toEqual({
+          success: false,
+          message: 'Failed to retrieve products',
+          error: 'Database connection error',
+          meta: { details: expect.any(String) },
+        });
+      }
     });
   });
 
   describe('findById', () => {
     it('should return a product by ID', async () => {
       // Arrange
+      const productId = 1;
       jest.spyOn(repository, 'findOne').mockResolvedValue(mockProduct);
 
       // Act
-      const result = await service.findById(1);
+      const result = await service.findById(productId);
 
       // Assert
       expect(repository.findOne).toHaveBeenCalledWith({
-        where: { num: 1, borrado: false },
+        where: { num: productId, borrado: false },
         relations: ['images', 'catalogs'],
       });
-
       expect(mapper.mapToDto).toHaveBeenCalledWith(mockProduct);
       expect(result).toEqual(mockResponseDto);
     });
 
-    it('should throw NotFoundException when product is not found', async () => {
+    it('should throw HttpException when product is not found', async () => {
       // Arrange
+      const productId = 999;
       jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findById(999)).rejects.toThrow(NotFoundException);
+      try {
+        await service.findById(productId);
+        fail('should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
+        expect(error.getResponse()).toEqual({
+          success: false,
+          message: `Product with ID ${productId} not found`,
+          error: 'NOT_FOUND',
+        });
+      }
+    });
+
+    it('should wrap database errors in HttpException', async () => {
+      // Arrange
+      const productId = 1;
+      const dbError = new Error('Database connection error');
+      jest.spyOn(repository, 'findOne').mockRejectedValue(dbError);
+
+      // Act & Assert
+      try {
+        await service.findById(productId);
+        fail('should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(error.getResponse()).toEqual({
+          success: false,
+          message: `Failed to retrieve product with ID ${productId}`,
+          error: 'Database connection error',
+        });
+      }
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return all products', async () => {
+      // Arrange
+      jest
+        .spyOn(repository, 'find')
+        .mockResolvedValue([mockProduct, mockProduct]);
+
+      // Act
+      const result = await service.findAll();
+
+      // Assert
+      expect(repository.find).toHaveBeenCalledWith({
+        where: { borrado: false },
+        relations: ['images', 'catalogs'],
+        take: 10,
+      });
+      expect(mapper.mapToDto).toHaveBeenCalledTimes(2);
+      expect(result).toEqual([mockResponseDto, mockResponseDto]);
+    });
+
+    it('should throw HttpException when no products are found', async () => {
+      // Arrange
+      jest.spyOn(repository, 'find').mockResolvedValue([]);
+
+      // Act & Assert
+      try {
+        await service.findAll();
+        fail('should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
+        expect(error.getResponse()).toEqual({
+          success: false,
+          message: 'No products found',
+          error: 'NOT_FOUND',
+        });
+      }
     });
   });
 });

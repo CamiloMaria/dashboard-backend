@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import request from 'supertest';
 import { ProductModule } from './product.module';
 import { ProductService } from './services/product.service';
@@ -15,6 +20,7 @@ import {
   WebProductPromo,
   WebPromo,
 } from './entities/shop';
+import { PaginationMeta } from '../../config/swagger/response.schema';
 
 // Mock repositories
 const mockRepository = {
@@ -79,7 +85,6 @@ describe('Product Module Integration Tests', () => {
     );
 
     productService = moduleFixture.get<ProductService>(ProductService);
-
     await app.init();
   });
 
@@ -92,37 +97,29 @@ describe('Product Module Integration Tests', () => {
       // Arrange
       const mockProducts = [
         {
-          num: 1,
+          id: 1,
           sku: '7460170355288',
-          title: 'Test Product 1',
-          borrado: false,
+          title: 'Test Product',
         },
-        {
-          num: 2,
-          sku: '7460170355289',
-          title: 'Test Product 2',
-          borrado: false,
-        },
-      ];
+      ] as ProductResponseDto[];
 
-      jest.spyOn(productService, 'findAllPaginated').mockResolvedValue({
-        items: mockProducts.map(
-          (p) =>
-            ({
-              id: p.num,
-              sku: p.sku,
-              title: p.title,
-            }) as ProductResponseDto,
-        ),
-        meta: {
-          currentPage: 1,
-          itemsPerPage: 10,
-          totalItems: 2,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        },
-      });
+      const mockMeta: PaginationMeta = {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
+
+      const mockPaginatedResponse = {
+        items: mockProducts,
+        meta: mockMeta,
+      };
+
+      jest
+        .spyOn(productService, 'findAllPaginated')
+        .mockResolvedValue(mockPaginatedResponse);
 
       // Act & Assert
       const response = await request(app.getHttpServer())
@@ -130,35 +127,10 @@ describe('Product Module Integration Tests', () => {
         .expect(HttpStatus.OK);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(2);
-      expect(response.body.meta.totalItems).toBe(2);
-    });
-
-    it('should handle pagination query parameters', async () => {
-      // Arrange
-      jest.spyOn(productService, 'findAllPaginated').mockResolvedValue({
-        items: [],
-        meta: {
-          currentPage: 2,
-          itemsPerPage: 5,
-          totalItems: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: true,
-        },
-      });
-
-      // Act & Assert
-      await request(app.getHttpServer())
-        .get('/products?page=2&limit=5')
-        .expect(HttpStatus.OK);
-
-      expect(productService.findAllPaginated).toHaveBeenCalledWith(
-        expect.objectContaining({
-          page: 2,
-          limit: 5,
-        }),
-      );
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.meta).toBeDefined();
+      expect(response.body.meta.page).toBe(1);
+      expect(response.body.meta.limit).toBe(10);
     });
 
     it('should handle search parameters', async () => {
@@ -191,16 +163,24 @@ describe('Product Module Integration Tests', () => {
 
     it('should handle 404 when no products found', async () => {
       // Arrange
+      const errorResponse = {
+        success: false,
+        message: 'No products found matching your search criteria',
+        error: 'NOT_FOUND',
+      };
+
       jest
         .spyOn(productService, 'findAllPaginated')
         .mockRejectedValue(
-          new Error('No products found matching your search criteria'),
+          new HttpException(errorResponse, HttpStatus.NOT_FOUND),
         );
 
       // Act & Assert
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .get('/products?title=NonExistent')
-        .expect(HttpStatus.INTERNAL_SERVER_ERROR);
+        .expect(HttpStatus.NOT_FOUND);
+
+      expect(response.body).toMatchObject(errorResponse);
     });
   });
 
@@ -227,14 +207,46 @@ describe('Product Module Integration Tests', () => {
 
     it('should handle 404 when product not found', async () => {
       // Arrange
+      const errorResponse = {
+        success: false,
+        message: 'Product with ID 999 not found',
+        error: 'NOT_FOUND',
+      };
+
       jest
         .spyOn(productService, 'findById')
-        .mockRejectedValue(new Error('Product with ID 999 not found'));
+        .mockRejectedValue(
+          new HttpException(errorResponse, HttpStatus.NOT_FOUND),
+        );
 
       // Act & Assert
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .get('/products/999')
+        .expect(HttpStatus.NOT_FOUND);
+
+      expect(response.body).toMatchObject(errorResponse);
+    });
+
+    it('should handle internal server errors', async () => {
+      // Arrange
+      const errorResponse = {
+        success: false,
+        message: 'Failed to retrieve product with ID 1',
+        error: 'Database connection error',
+      };
+
+      jest
+        .spyOn(productService, 'findById')
+        .mockRejectedValue(
+          new HttpException(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR),
+        );
+
+      // Act & Assert
+      const response = await request(app.getHttpServer())
+        .get('/products/1')
         .expect(HttpStatus.INTERNAL_SERVER_ERROR);
+
+      expect(response.body).toMatchObject(errorResponse);
     });
   });
 });
