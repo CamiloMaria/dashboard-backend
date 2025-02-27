@@ -34,8 +34,6 @@ export class AuthService {
    */
   async login(loginDto: LoginDto): Promise<UserLoginResponseDto> {
     try {
-      this.logger.log(`Login attempt for user: ${loginDto.username}`);
-
       // Validate user using external API
       const externalUser = await this.externalApiService.validateUser(
         loginDto.username,

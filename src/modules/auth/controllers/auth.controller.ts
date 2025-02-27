@@ -56,7 +56,7 @@ export class AuthController {
    */
   @Get('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @RequirePages('dashboard')
+  @RequirePages('/')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get user profile',

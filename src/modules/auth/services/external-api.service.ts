@@ -48,7 +48,6 @@ export class ExternalApiService {
       );
 
       if (response.data.error) {
-        this.logger.warn(`Failed login attempt for user: ${username}`);
         throw new UnauthorizedException('Invalid credentials');
       }
 
