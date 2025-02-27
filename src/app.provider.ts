@@ -3,6 +3,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 /**
  * Global providers for the application
@@ -23,6 +24,10 @@ export const APP_PROVIDERS = [
   },
   {
     provide: APP_FILTER,
-    useClass: HttpExceptionFilter,
+    useClass: AllExceptionsFilter, // Catch all exceptions first
+  },
+  {
+    provide: APP_FILTER,
+    useClass: HttpExceptionFilter, // Then handle HTTP exceptions
   },
 ];

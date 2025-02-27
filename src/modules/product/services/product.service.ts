@@ -85,7 +85,7 @@ export class ProductService {
         order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
       });
 
-      if (products || products.length === 0) {
+      if (!products || products.length === 0) {
         throw new HttpException(
           {
             success: false,
