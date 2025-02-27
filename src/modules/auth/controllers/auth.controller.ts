@@ -9,6 +9,7 @@ import {
   UseGuards,
   Get,
   Request,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -189,5 +190,46 @@ export class AuthController {
   ): Promise<UserLoginResponseDto> {
     const result = await this.authService.login(loginDto);
     return result;
+  }
+
+  @ApiOperation({ summary: 'Check health of the authentication service' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Authentication service is healthy',
+    type: BaseResponse,
+    schema: {
+      example: {
+        success: true,
+        message: 'Authentication service is healthy',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    type: BaseResponse,
+    schema: {
+      example: {
+        success: false,
+        message:
+          'An error occurred while checking the health of the authentication service. Please try again later.',
+        error: 'Internal Server Error',
+      },
+    },
+  })
+  @Get('health')
+  @Public()
+  async checkHealth(): Promise<BaseResponse<any>> {
+    try {
+      // Perform any necessary health checks here
+      return {
+        success: true,
+        message: 'Authentication service is healthy',
+      };
+    } catch {
+      throw new InternalServerErrorException(
+        'An error occurred while checking the health of the authentication service. Please try again later.',
+      );
+    }
   }
 }

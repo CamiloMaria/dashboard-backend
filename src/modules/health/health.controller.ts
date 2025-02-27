@@ -84,7 +84,7 @@ export class HealthController {
     const baseUrl = `http://${host}:${port}/${prefix}`;
 
     return this.health.check([
-      () => this.http.pingCheck('auth', `${baseUrl}/auth/sign-in`),
+      () => this.http.pingCheck('auth', `${baseUrl}/auth/health`),
     ]);
   }
 }
