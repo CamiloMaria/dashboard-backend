@@ -22,7 +22,9 @@ export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all products with pagination and search' })
+  @ApiOperation({
+    summary: 'Get all products with pagination, search, and sorting',
+  })
   @ApiResponse({
     status: 200,
     description: 'Products retrieved successfully',

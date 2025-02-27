@@ -1,6 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, IsEnum } from 'class-validator';
 import { PaginationQueryDto } from './pagination-query.dto';
+
+export enum SortField {
+  TITLE = 'title',
+  SKU = 'sku',
+  CREATED_AT = 'create_at',
+  UPDATED_AT = 'update_at',
+}
+
+export enum SortOrder {
+  ASC = 'ASC',
+  DESC = 'DESC',
+}
 
 export class ProductFilterDto extends PaginationQueryDto {
   @ApiProperty({
@@ -32,4 +44,25 @@ export class ProductFilterDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(40)
   matnr?: string;
+
+  @ApiProperty({
+    description: 'Field to sort by',
+    required: false,
+    enum: SortField,
+    example: SortField.TITLE,
+  })
+  @IsOptional()
+  @IsEnum(SortField)
+  sortBy?: SortField = SortField.TITLE;
+
+  @ApiProperty({
+    description: 'Sort order (ascending or descending)',
+    required: false,
+    enum: SortOrder,
+    default: SortOrder.ASC,
+    example: SortOrder.ASC,
+  })
+  @IsOptional()
+  @IsEnum(SortOrder)
+  sortOrder?: SortOrder = SortOrder.ASC;
 }

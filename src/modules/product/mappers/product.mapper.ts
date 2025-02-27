@@ -51,8 +51,6 @@ export class ProductMapper {
       id: product.num,
       sku: product.sku,
       title: product.title,
-      price: product.price,
-      compare_price: product.compare_price,
       material: product.matnr,
       depto: product.depto,
       grupo: product.grupo,

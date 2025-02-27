@@ -68,12 +68,6 @@ export class ProductResponseDto {
   })
   title: string;
 
-  @ApiProperty({ example: 25442.9 })
-  price: number;
-
-  @ApiProperty({ example: 36347 })
-  compare_price: number;
-
   @ApiProperty({ example: '2157909' })
   material: string;
 

@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { FindOptionsWhere, Like, Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { ProductMapper } from '../mappers/product.mapper';
 import { PaginationMeta } from '../../../config/swagger/response.schema';
-import { ProductFilterDto } from '../dto/product-filter.dto';
+import {
+  ProductFilterDto,
+  SortField,
+  SortOrder,
+} from '../dto/product-filter.dto';
 
 @Injectable()
 export class ProductService {
@@ -24,7 +28,15 @@ export class ProductService {
   async findAllPaginated(
     filterDto: ProductFilterDto,
   ): Promise<{ items: ProductResponseDto[]; meta: PaginationMeta }> {
-    const { page = 1, limit = 10, sku, title, matnr } = filterDto;
+    const {
+      page = 1,
+      limit = 10,
+      sku,
+      title,
+      matnr,
+      sortBy = SortField.TITLE,
+      sortOrder = SortOrder.ASC,
+    } = filterDto;
 
     // Ensure valid pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -57,12 +69,19 @@ export class ProductService {
     // Calculate pagination metadata
     const totalPages = Math.ceil(totalItems / validLimit);
 
+    // Prepare the order options for sorting
+    const orderOptions: { [key: string]: 'ASC' | 'DESC' } = {};
+    if (sortBy) {
+      orderOptions[sortBy] = sortOrder;
+    }
+
     // Find products matching the search criteria with pagination
     const products = await this.productRepository.find({
       where: whereConditions,
       relations: ['images', 'catalogs'],
       skip: offset,
       take: validLimit,
+      order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
     });
 
     if (!products || products.length === 0) {
