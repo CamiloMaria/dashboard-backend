@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WebUsersPermissions } from '../entities/web-user-permissions.entity';
+import { WebUsersPermissions } from '../entities/shop/web-user-permissions.entity';
 import { DatabaseConnection } from '../../../config/database/constants';
 
 @Injectable()
@@ -41,10 +41,6 @@ export class PermissionsService {
         return cachedData.permissions;
       }
 
-      // If not in cache or expired, fetch from database
-      this.logger.debug(
-        `Fetching permissions for user: ${username} from database`,
-      );
       const userPermissions = await this.userPermissionsRepository.findOne({
         where: { username, isActive: 1 },
       });

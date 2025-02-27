@@ -31,21 +31,20 @@ export class ExternalApiService {
     password: string,
   ): Promise<UserLoginResponse> {
     try {
-      const url = this.envService.intranet;
+      const url = `${this.envService.intranet}/auth_ctrl/login`;
 
-      this.logger.debug(
-        `Authenticating user "${username}" against external API`,
-      );
+      const body = this.getQueryStringParameters({
+        usuario: username,
+        password,
+      });
 
       const response = await firstValueFrom(
-        this.httpService.post<UserLoginResponse>(
-          url,
-          { username, password },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000, // 10 seconds
+        this.httpService.post<UserLoginResponse>(url, body, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-        ),
+          timeout: 10000, // 10 seconds
+        }),
       );
 
       if (response.data.error) {
@@ -53,7 +52,6 @@ export class ExternalApiService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      this.logger.debug(`User "${username}" authenticated successfully`);
       return response.data;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
@@ -70,5 +68,11 @@ export class ExternalApiService {
         { cause: error },
       );
     }
+  }
+
+  private getQueryStringParameters(obj) {
+    return Object.keys(obj)
+      .map((key) => key + '=' + obj[key])
+      .join('&');
   }
 }

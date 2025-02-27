@@ -1,19 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class UserLoginResponseDto {
-  @ApiProperty({
-    description: 'JWT access token',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  })
-  access_token: string;
-
-  @ApiProperty({
-    description: 'User information and permissions',
-    type: () => UserPayloadDto,
-  })
-  user: UserPayloadDto;
-}
-
 export class UserPayloadDto {
   @ApiProperty({
     description: 'Username',
@@ -39,6 +25,20 @@ export class UserPayloadDto {
     type: [String],
   })
   allowedPages: string[];
+}
+
+export class UserLoginResponseDto {
+  @ApiProperty({
+    description: 'JWT access token',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  access_token: string;
+
+  @ApiProperty({
+    description: 'User information and permissions',
+    type: () => UserPayloadDto,
+  })
+  user: UserPayloadDto;
 }
 
 export class UserDetailsDto {

@@ -5,18 +5,24 @@ import {
   HealthCheckResult,
   HealthIndicatorResult,
   TypeOrmHealthIndicator,
+  HttpHealthIndicator,
 } from '@nestjs/terminus';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { EnvService } from '../../config/env/env.service';
+import { Public } from '../../modules/auth/decorators/public.decorator';
 
 /**
  * Controller for health check endpoints
  */
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(
     private health: HealthCheckService,
     private db: TypeOrmHealthIndicator,
+    private http: HttpHealthIndicator,
+    private envService: EnvService,
     @InjectDataSource('shop') private shopConnection: DataSource,
     @InjectDataSource('intranet36') private intranet36Connection: DataSource,
     @InjectDataSource('oracle') private oracleConnection: DataSource,
@@ -61,6 +67,24 @@ export class HealthController {
         this.db.pingCheck('oracle', {
           connection: this.oracleConnection,
         }),
+    ]);
+  }
+
+  /**
+   * Health check endpoint for the auth service
+   * @returns Health check result for the auth service
+   */
+  @Get('auth')
+  @HealthCheck()
+  checkAuth() {
+    // Build URL from environment variables or use defaults
+    const host = 'localhost';
+    const port = this.envService.port;
+    const prefix = this.envService.globalPrefix;
+    const baseUrl = `http://${host}:${port}/${prefix}`;
+
+    return this.health.check([
+      () => this.http.pingCheck('auth', `${baseUrl}/auth/sign-in`),
     ]);
   }
 }
