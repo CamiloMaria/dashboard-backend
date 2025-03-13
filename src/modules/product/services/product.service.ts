@@ -11,14 +11,23 @@ import {
   SortField,
   SortOrder,
 } from '../dto/product-filter.dto';
+import axios from 'axios';
+import { EnvService } from 'src/config';
 
 @Injectable()
 export class ProductService {
+  private readonly chatGptUrl: string;
+  private readonly chatGptApiKey: string;
+
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly productRepository: Repository<WebProduct>,
     private readonly productMapper: ProductMapper,
-  ) {}
+    private readonly envService: EnvService,
+  ) {
+    this.chatGptUrl = this.envService.chatGptUrl;
+    this.chatGptApiKey = this.envService.chatGptApiKey;
+  }
 
   /**
    * Fetch products with pagination and search filters
@@ -201,6 +210,89 @@ export class ProductService {
         {
           success: false,
           message: `Failed to retrieve product with ID ${id}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Generate a product description using ChatGPT
+   * @param productTitle The title of the product
+   * @returns Generated HTML description
+   */
+  async generateDescription(productTitle: string): Promise<string> {
+    try {
+      if (!this.chatGptUrl || !this.chatGptApiKey) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'ChatGPT API configuration missing',
+            error: 'CONFIGURATION_ERROR',
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const body = {
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant.' },
+          {
+            role: 'user',
+            content: `Tu trabajo ahora es ayúdarme a generar una descripción comercial para el siguiente producto: ${productTitle}. 
+            Quiero que solo me respondas con el texto en formato html.`,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      };
+
+      const response = await axios.post(
+        `${this.chatGptUrl}/chat/completions`,
+        body,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.chatGptApiKey}`,
+          },
+        },
+      );
+
+      if (
+        !response.data ||
+        !response.data.choices ||
+        response.data.choices.length === 0
+      ) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to generate description',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Extract the generated description from the response
+      const generatedDescription = response.data.choices[0].message.content;
+
+      // Clean the response by removing markdown code blocks and newlines
+      const cleanedDescription = generatedDescription
+        .replace(/```html\n/, '')
+        .replace(/\n```/, '')
+        .replace(/\n/g, '');
+
+      return cleanedDescription;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to generate product description',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

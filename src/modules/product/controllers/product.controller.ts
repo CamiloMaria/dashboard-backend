@@ -1,13 +1,21 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
   Param,
   ParseIntPipe,
   HttpException,
   HttpStatus,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { ProductFilterDto } from '../dto/product-filter.dto';
@@ -16,6 +24,10 @@ import {
   PaginatedResponse,
 } from '../../../config/swagger/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
+import {
+  GenerateDescriptionDto,
+  GenerateDescriptionResponseDto,
+} from '../dto/generate-description.dto';
 
 @ApiTags('Products')
 @Controller('products')
@@ -106,6 +118,51 @@ export class ProductController {
           error: error.message,
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('generate-description')
+  @ApiOperation({
+    summary: 'Generate a product description using ChatGPT',
+  })
+  @ApiBody({ type: GenerateDescriptionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Description generated successfully',
+    type: () => BaseResponse<GenerateDescriptionResponseDto>,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request or AI generation error',
+    type: () => BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: () => BaseResponse<null>,
+  })
+  async generateDescription(@Body() generateDto: GenerateDescriptionDto) {
+    try {
+      const description = await this.productService.generateDescription(
+        generateDto.productTitle,
+      );
+
+      return this.responseService.success(
+        { description },
+        'Product description generated successfully',
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to generate product description',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

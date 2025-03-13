@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { DatabaseConnection } from '../../config/database/constants';
 import {
   WebCatalog,
@@ -24,6 +25,7 @@ import { ProductSetMapper } from './mappers/product-set.mapper';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature(
       [
         WebProduct,
