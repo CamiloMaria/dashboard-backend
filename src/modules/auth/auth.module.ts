@@ -7,7 +7,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PassportModule } from '@nestjs/passport';
 import { EnvModule } from '../../config/env/env.module';
 import { AuthService } from './services/auth.service';
-import { ExternalApiService } from './services/external-api.service';
 import { PermissionsService } from './services/permissions.service';
 import { AuthController } from './controllers/auth.controller';
 import { WebUsersPermissions } from './entities/shop/web-user-permissions.entity';
@@ -16,12 +15,13 @@ import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { ResponseService } from '../../common/services/response.service';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     ConfigModule,
     EnvModule,
+    CommonModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     // Rate limiting to prevent brute force attacks
     ThrottlerModule.forRootAsync({
@@ -58,12 +58,10 @@ import { ResponseService } from '../../common/services/response.service';
   controllers: [AuthController],
   providers: [
     AuthService,
-    ExternalApiService,
     PermissionsService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
-    ResponseService,
   ],
   exports: [AuthService, PermissionsService, JwtAuthGuard, RolesGuard],
 })

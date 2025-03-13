@@ -11,8 +11,8 @@ import {
   UserDetailsDto,
   UserPayloadDto,
 } from '../dto/auth-response.dto';
-import { UserLoginData } from '../interfaces/external-api.interface';
-import { ExternalApiService } from './external-api.service';
+import { UserLoginData } from '../../../common/interfaces/user-api.interface';
+import { ExternalApiService } from '../../../common/services/external-api.service';
 import { PermissionsService } from './permissions.service';
 import { LoggerService } from 'src/config';
 
@@ -64,8 +64,6 @@ export class AuthService {
 
       // Generate token
       const token = this.generateToken(payload);
-
-      this.logger.log(`User ${loginDto.username} logged in successfully`);
 
       // Return token and user data
       return {

@@ -37,7 +37,6 @@ export class PermissionsService {
       const now = Date.now();
 
       if (cachedData && now - cachedData.timestamp < this.CACHE_TTL) {
-        this.logger.debug(`Using cached permissions for user: ${username}`);
         return cachedData.permissions;
       }
 

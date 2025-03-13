@@ -11,31 +11,16 @@ import {
   SortField,
   SortOrder,
 } from '../dto/product-filter.dto';
-import axios from 'axios';
-import { EnvService } from 'src/config';
-import {
-  ChatGptMessage,
-  ChatGptRequestBody,
-  ChatGptResponse,
-} from '../interfaces';
+import { ExternalApiService } from '../../../common/services/external-api.service';
 
 @Injectable()
 export class ProductService {
-  private readonly chatGptUrl: string;
-  private readonly chatGptApiKey: string;
-  private readonly DEFAULT_GPT_MODEL = 'gpt-4o-mini';
-  private readonly DEFAULT_MAX_TOKENS = 500;
-  private readonly DEFAULT_TEMPERATURE = 0.7;
-
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly productRepository: Repository<WebProduct>,
     private readonly productMapper: ProductMapper,
-    private readonly envService: EnvService,
-  ) {
-    this.chatGptUrl = this.envService.chatGptUrl;
-    this.chatGptApiKey = this.envService.chatGptApiKey;
-  }
+    private readonly externalApiService: ExternalApiService,
+  ) {}
 
   /**
    * Fetch products with pagination and search filters
@@ -235,7 +220,7 @@ export class ProductService {
       const prompt = `Tu trabajo ahora es ayúdarme a generar una descripción comercial para el siguiente producto: ${productTitle}. 
       Quiero que solo me respondas con el texto en formato html.`;
 
-      const content = await this.callChatGptApi([
+      const content = await this.externalApiService.callChatGptApi([
         { role: 'system', content: 'You are a helpful assistant.' },
         { role: 'user', content: prompt },
       ]);
@@ -272,15 +257,15 @@ export class ProductService {
   ): Promise<string> {
     try {
       const prompt = `Hola, estamos creando un e-commerce en 
-          República Dominicana y necesitamos crear un listado de keywords 
-          para cada producto de nuestro catalogo que contenga los regionalismos 
-          clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
-          keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
-          categorias. Producto: ${productTitle} y las categorias a que pertenece 
-          son estas: ${productCategory}. Necesito que solo me respondas con el 
-          resultado sea una lista seperada por comma.`;
+      República Dominicana y necesitamos crear un listado de keywords 
+      para cada producto de nuestro catalogo que contenga los regionalismos 
+      clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
+      keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
+      categorias. Producto: ${productTitle} y las categorias a que pertenece 
+      son estas: ${productCategory}. Necesito que solo me respondas con el 
+      resultado sea una lista seperada por comma.`;
 
-      const content = await this.callChatGptApi([
+      const content = await this.externalApiService.callChatGptApi([
         { role: 'user', content: prompt },
       ]);
 
@@ -294,93 +279,6 @@ export class ProductService {
         {
           success: false,
           message: 'Failed to generate product keywords',
-          error: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
-   * Make a request to the ChatGPT API
-   * @param messages Array of messages to send to ChatGPT
-   * @param model The model to use (defaults to gpt-4o-mini)
-   * @param maxTokens Maximum tokens to generate (defaults to 500)
-   * @param temperature Randomness of the output (defaults to 0.7)
-   * @returns The generated content from ChatGPT
-   * @throws HttpException if the API call fails
-   */
-  private async callChatGptApi(
-    messages: ChatGptMessage[],
-    model: string = this.DEFAULT_GPT_MODEL,
-    maxTokens: number = this.DEFAULT_MAX_TOKENS,
-    temperature: number = this.DEFAULT_TEMPERATURE,
-  ): Promise<string> {
-    if (!this.chatGptUrl || !this.chatGptApiKey) {
-      throw new HttpException(
-        {
-          success: false,
-          message: 'ChatGPT API configuration missing',
-          error: 'CONFIGURATION_ERROR',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    const body: ChatGptRequestBody = {
-      model,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    };
-
-    try {
-      const response = await axios.post<ChatGptResponse>(
-        `${this.chatGptUrl}/chat/completions`,
-        body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.chatGptApiKey}`,
-          },
-        },
-      );
-
-      if (
-        !response.data ||
-        !response.data.choices ||
-        response.data.choices.length === 0
-      ) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'Failed to generate content from ChatGPT',
-            error: 'API_ERROR',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      return response.data.choices[0].message.content;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      if (axios.isAxiosError(error)) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'Failed to call ChatGPT API',
-            error: error.message,
-            details: error.response?.data,
-          },
-          HttpStatus.BAD_GATEWAY,
-        );
-      }
-      throw new HttpException(
-        {
-          success: false,
-          message: 'Unknown error while calling ChatGPT API',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

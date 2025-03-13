@@ -4,13 +4,14 @@ import { LoggerModule, EnvModule, DatabaseModule } from './config';
 import { HealthModule, ProductModule } from './modules';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_PROVIDERS } from './app.provider';
-import { ResponseService } from './common/services/response.service';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
     EnvModule,
     LoggerModule,
     DatabaseModule,
+    CommonModule,
     // Global rate limiting
     ThrottlerModule.forRoot([
       {
@@ -23,6 +24,6 @@ import { ResponseService } from './common/services/response.service';
     AuthModule,
   ],
   controllers: [],
-  providers: [...APP_PROVIDERS, ResponseService],
+  providers: [...APP_PROVIDERS],
 })
 export class AppModule {}
