@@ -10,7 +10,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EnvService } from '../../config/env/env.service';
-import { Public } from '../../modules/auth/decorators/public.decorator';
+import { Public } from '../../common/decorators';
 import { DatabaseConnection } from '../../config/database/constants';
 
 /**

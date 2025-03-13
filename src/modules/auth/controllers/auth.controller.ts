@@ -18,27 +18,15 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { Request as ExpressRequest } from 'express';
 
 import { AuthService } from '../services/auth.service';
 import { LoginDto } from '../dto/login.dto';
 import { UserLoginResponseDto } from '../dto/auth-response.dto';
 import { BaseResponse } from '../../../config/swagger/response.schema';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RolesGuard } from '../guards/roles.guard';
-import { RequirePages } from '../guards/roles.guard';
-import { Public } from '../decorators/public.decorator';
+import { JwtAuthGuard, RolesGuard, RequirePages } from '../../../common/guards';
+import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';
-
-// Define the type for authenticated request
-interface RequestWithUser extends ExpressRequest {
-  user: {
-    userId: string;
-    username: string;
-    email: string;
-    allowedPages: string[];
-  };
-}
+import { RequestWithUser } from '../../../common/interfaces/request.interface';
 
 /**
  * Controller for authentication-related endpoints

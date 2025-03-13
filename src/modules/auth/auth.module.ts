@@ -13,8 +13,7 @@ import { WebUsersPermissions } from './entities/shop/web-user-permissions.entity
 import { DatabaseConnection } from '../../config/database/constants';
 import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
+import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CommonModule } from '../../common/common.module';
 
 @Module({

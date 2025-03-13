@@ -1,7 +1,6 @@
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
-import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { JwtAuthGuard, RolesGuard } from './common/guards';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
