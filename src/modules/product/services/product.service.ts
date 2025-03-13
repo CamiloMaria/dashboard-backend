@@ -177,7 +177,7 @@ export class ProductService {
   async findById(id: number): Promise<ProductResponseDto> {
     try {
       const product = await this.productRepository.findOne({
-        where: { num: id, borrado: false },
+        where: { num: id },
         relations: ['images', 'catalogs'],
       });
 

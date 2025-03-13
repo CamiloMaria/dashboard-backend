@@ -13,6 +13,9 @@ import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
 import { ProductMapper } from './mappers/product.mapper';
 import { ResponseService } from '../../common/services/response.service';
+import { PromotionController } from './controllers/promotion.controller';
+import { PromotionService } from './services/promotion.service';
+import { PromotionMapper } from './mappers/promotion.mapper';
 
 @Module({
   imports: [
@@ -28,8 +31,14 @@ import { ResponseService } from '../../common/services/response.service';
       DatabaseConnection.SHOP,
     ),
   ],
-  controllers: [ProductController],
-  providers: [ProductService, ProductMapper, ResponseService],
+  controllers: [ProductController, PromotionController],
+  providers: [
+    ProductService,
+    ProductMapper,
+    ResponseService,
+    PromotionService,
+    PromotionMapper,
+  ],
   exports: [TypeOrmModule],
 })
 export class ProductModule {}
