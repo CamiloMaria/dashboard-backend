@@ -9,13 +9,13 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { EnvService } from '../../config/env/env.service';
-import { UserLoginResponse } from '../interfaces/user-api.interface';
 import {
   ChatGptMessage,
   ChatGptRequestBody,
   ChatGptResponse,
-} from '../interfaces/chat-gpt-api.interface';
-import { ShopilamaProductResponse } from '../../modules/product/interfaces/shopilama-api.interface';
+  ShopilamaProductResponse,
+  UserLoginResponse,
+} from '../interfaces';
 
 @Injectable()
 export class ExternalApiService {

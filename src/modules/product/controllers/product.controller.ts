@@ -8,6 +8,7 @@ import {
   HttpException,
   HttpStatus,
   Query,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -36,6 +38,7 @@ import {
   CreateProductsDto,
   CreateProductResultDto,
 } from '../dto/create-product.dto';
+import { RequestWithUser } from '../../../common/interfaces/request.interface';
 
 @ApiTags('Products')
 @Controller('products')
@@ -46,23 +49,29 @@ export class ProductController {
   ) {}
 
   @Get()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all products with pagination, search, and sorting',
   })
   @ApiResponse({
     status: 200,
     description: 'Products retrieved successfully',
-    type: () => PaginatedResponse<ProductResponseDto>,
+    type: PaginatedResponse<ProductResponseDto>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
   })
   @ApiResponse({
     status: 404,
     description: 'No products found',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   @ApiResponse({
     status: 500,
     description: 'Internal server error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   async findAll(@Query() filterDto: ProductFilterDto) {
     try {
@@ -91,22 +100,28 @@ export class ProductController {
   }
 
   @Get(':id')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
   @ApiResponse({
     status: 200,
     description: 'Product retrieved successfully',
-    type: () => BaseResponse<ProductResponseDto>,
+    type: BaseResponse<ProductResponseDto>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
   })
   @ApiResponse({
     status: 404,
     description: 'Product not found',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   @ApiResponse({
     status: 500,
     description: 'Internal server error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
@@ -131,6 +146,7 @@ export class ProductController {
   }
 
   @Post('generate-description')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Generate a product description using ChatGPT',
   })
@@ -138,17 +154,22 @@ export class ProductController {
   @ApiResponse({
     status: 200,
     description: 'Description generated successfully',
-    type: () => BaseResponse<GenerateDescriptionResponseDto>,
+    type: BaseResponse<GenerateDescriptionResponseDto>,
   })
   @ApiResponse({
     status: 400,
     description: 'Bad request or AI generation error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
   })
   @ApiResponse({
     status: 500,
     description: 'Internal server error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   async generateDescription(@Body() generateDto: GenerateDescriptionDto) {
     try {
@@ -176,6 +197,7 @@ export class ProductController {
   }
 
   @Post('generate-keywords')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Generate SEO keywords for a product using ChatGPT',
   })
@@ -183,17 +205,22 @@ export class ProductController {
   @ApiResponse({
     status: 200,
     description: 'Keywords generated successfully',
-    type: () => BaseResponse<GenerateKeywordsResponseDto>,
+    type: BaseResponse<GenerateKeywordsResponseDto>,
   })
   @ApiResponse({
     status: 400,
     description: 'Bad request or AI generation error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
   })
   @ApiResponse({
     status: 500,
     description: 'Internal server error',
-    type: () => BaseResponse<null>,
+    type: BaseResponse<null>,
   })
   async generateKeywords(@Body() generateDto: GenerateKeywordsDto) {
     try {
@@ -222,6 +249,7 @@ export class ProductController {
   }
 
   @Post('create-from-skus')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create products from a list of SKUs',
     description:
@@ -258,16 +286,26 @@ export class ProductController {
     type: BaseResponse,
   })
   @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
     status: 500,
     description: 'Internal server error',
     type: BaseResponse,
   })
   async createFromSkus(
     @Body() createDto: CreateProductsDto,
+    @Request() req: RequestWithUser,
   ): Promise<BaseResponse<CreateProductResultDto[]>> {
     try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
       const results = await this.productService.createProductsFromSkus(
         createDto.skus,
+        username,
       );
 
       // Check if any products were successfully created

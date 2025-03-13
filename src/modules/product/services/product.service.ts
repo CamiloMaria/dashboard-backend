@@ -12,7 +12,7 @@ import {
   SortOrder,
 } from '../dto/product-filter.dto';
 import { ExternalApiService } from '../../../common/services/external-api.service';
-import { ShopilamaProductResponse } from '../interfaces/shopilama-api.interface';
+import { ShopilamaProductResponse } from 'src/common';
 import { CreateProductResultDto } from '../dto/create-product.dto';
 
 @Injectable()
@@ -294,10 +294,12 @@ export class ProductService {
   /**
    * Create products from a list of SKUs
    * @param skus List of product SKUs to create
+   * @param username Username of the user creating the products
    * @returns Results for each SKU processing
    */
   async createProductsFromSkus(
     skus: string[],
+    username: string,
   ): Promise<CreateProductResultDto[]> {
     const results: CreateProductResultDto[] = [];
 
@@ -336,8 +338,11 @@ export class ProductService {
         }
 
         // Create and save the new product
-        const newProduct =
-          await this.createProductFromShopilamaData(productData);
+        const newProduct = await this.createProductFromShopilamaData(
+          sku,
+          productData,
+          username,
+        );
 
         results.push({
           sku,
@@ -363,34 +368,33 @@ export class ProductService {
 
   /**
    * Create a new product from Shopilama API data
+   * @param sku The product SKU
    * @param productData The product data from the Shopilama API
+   * @param username Username of the user creating the product
    * @returns The created product entity
    */
   private async createProductFromShopilamaData(
+    sku: string,
     productData: ShopilamaProductResponse,
+    username: string,
   ): Promise<WebProduct> {
     try {
       // Create a new product entity with data from the API
       const newProduct = new WebProduct();
-      newProduct.sku = productData.ean;
+      newProduct.sku = sku;
+      newProduct.matnr = productData.material;
       newProduct.title = productData.title;
       newProduct.depto = productData.depto;
       newProduct.grupo = productData.grupo;
       newProduct.unmanejo = productData.unmanejo;
       newProduct.tpean = productData.tpean;
 
-      // Map tipo_itbis to type_tax
-      // Based on the description in the entity: '0 = Sin ITBIS, 1 = 18%, 2 = 16%'
-      switch (productData.tipo_itbis) {
-        case '18':
-          newProduct.type_tax = 1;
-          break;
-        case '16':
-          newProduct.type_tax = 2;
-          break;
-        default:
-          newProduct.type_tax = 0;
-      }
+      // Convert tipo_itbis directly to number for type_tax
+      newProduct.type_tax = Number(productData.tipo_itbis) || 0;
+
+      // Set user info
+      newProduct.userAdd = username;
+      newProduct.userUpd = username;
 
       // Set default values
       newProduct.borrado = false;
