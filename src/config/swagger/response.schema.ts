@@ -32,25 +32,16 @@ export class BaseResponse<T> {
  */
 export class PaginationMeta {
   @ApiProperty({ example: 1, description: 'Current page number' })
-  currentPage: number;
+  page: number;
 
-  @ApiProperty({ example: 10, description: 'Items per page' })
-  itemsPerPage: number;
+  @ApiProperty({ example: 1, description: 'Items per page' })
+  limit: number;
 
-  @ApiProperty({ example: 100, description: 'Total number of items' })
-  totalItems: number;
+  @ApiProperty({ example: 36306, description: 'Total number of items' })
+  total: number;
 
-  @ApiProperty({ example: 10, description: 'Total number of pages' })
+  @ApiProperty({ example: 36306, description: 'Total number of pages' })
   totalPages: number;
-
-  @ApiProperty({ example: true, description: 'Whether there is a next page' })
-  hasNextPage: boolean;
-
-  @ApiProperty({
-    example: false,
-    description: 'Whether there is a previous page',
-  })
-  hasPreviousPage: boolean;
 }
 
 /**

@@ -90,9 +90,20 @@ export class AuthController {
     type: BaseResponse,
   })
   getProfile(@Request() req: RequestWithUser) {
-    // The user is automatically injected into the request by the JwtAuthGuard
-    // and is available as req.user
-    return req.user;
+    try {
+      // The user is automatically injected into the request by the JwtAuthGuard
+      // and is available as req.user
+      return this.responseService.success(
+        req.user,
+        'Profile retrieved successfully',
+      );
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Failed to retrieve profile',
+        error: error.message,
+      });
+    }
   }
 
   /**

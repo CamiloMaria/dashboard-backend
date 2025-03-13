@@ -103,12 +103,10 @@ export class ProductService {
 
       // Create pagination metadata
       const meta: PaginationMeta = {
-        currentPage: validPage,
-        itemsPerPage: validLimit,
-        totalItems,
+        page: validPage,
+        limit: validLimit,
+        total: totalItems,
         totalPages,
-        hasNextPage: validPage < totalPages,
-        hasPreviousPage: validPage > 1,
       };
 
       return { items, meta };
