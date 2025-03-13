@@ -1,24 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { WebProductPromo } from '../entities/shop/web-product-promo.entity';
-import { WebProduct } from '../entities/shop/web-product.entity';
-import { WebPromo } from '../entities/shop/web-promo.entity';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
-import { DatabaseConnection } from '../../../config/database/constants';
+import { sanitizeString } from '../../../common/utils/string.utils';
 
 @Injectable()
 export class PromotionMapper {
-  constructor(
-    @InjectRepository(WebProduct, DatabaseConnection.SHOP)
-    private readonly productRepository: Repository<WebProduct>,
-    @InjectRepository(WebPromo, DatabaseConnection.SHOP)
-    private readonly promoRepository: Repository<WebPromo>,
-  ) {}
-
   /**
    * Maps a WebProductPromo entity to a PromotionResponseDto
-   * @param promotion The promotion entity
+   * Relations are pre-loaded by the service
+   * @param promotion The promotion entity with loaded relations
    * @returns The mapped DTO
    */
   async mapToDto(promotion: WebProductPromo): Promise<PromotionResponseDto> {
@@ -30,48 +20,21 @@ export class PromotionMapper {
     dto.matnr = promotion.matnr;
     dto.price = promotion.price;
     dto.compare_price = promotion.compare_price;
+    dto.create_at = promotion.create_at;
     dto.status = promotion.status;
     dto.shop = promotion.shop;
-    dto.create_at = promotion.create_at;
 
-    // Only fetch product data if we have a SKU and product relation isn't loaded
-    if (dto.sku && (!promotion.product || !promotion.product.title)) {
-      try {
-        const product = await this.productRepository.findOne({
-          where: { sku: dto.sku },
-          select: ['title'],
-        });
-
-        if (product) {
-          dto.product_title = product.title;
-        }
-      } catch {
-        // If product lookup fails, continue without product title
-        dto.product_title = null;
-      }
-    } else if (promotion.product) {
-      // If relation is already loaded, use it
-      dto.product_title = promotion.product.title;
+    // Map relations using pre-loaded data
+    if (promotion.product) {
+      dto.product_title = sanitizeString(promotion.product.title);
+    } else {
+      dto.product_title = null;
     }
 
-    // Only fetch promo data if promo relation isn't loaded
-    if (!promotion.promo || !promotion.promo.mapa) {
-      try {
-        const promo = await this.promoRepository.findOne({
-          where: { no_promo: dto.no_promo },
-          select: ['mapa'],
-        });
-
-        if (promo) {
-          dto.promo_mapa = promo.mapa;
-        }
-      } catch {
-        // If promo lookup fails, continue without promo name
-        dto.promo_mapa = null;
-      }
-    } else {
-      // If relation is already loaded, use it
+    if (promotion.promo) {
       dto.promo_mapa = promotion.promo.mapa;
+    } else {
+      dto.promo_mapa = null;
     }
 
     return dto;

@@ -88,9 +88,21 @@ export class PromotionService {
       // Don't eagerly load relations to avoid slow queries with non-indexed columns
       const promotions = await this.promotionRepository.find({
         where: whereConditions,
+        relations: ['product', 'promo'], // Load both relations at once
         skip: offset,
         take: validLimit,
         order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
+        select: {
+          no_promo: true,
+          sku: true,
+          matnr: true,
+          price: true,
+          compare_price: true,
+          create_at: true,
+          status: true,
+          shop: true,
+        },
+        relationLoadStrategy: 'query', // More efficient loading strategy
       });
 
       if (!promotions || promotions.length === 0) {
@@ -144,6 +156,18 @@ export class PromotionService {
     try {
       const promotion = await this.promotionRepository.findOne({
         where: { no_promo: id, status: 1 },
+        relations: ['product', 'promo'], // Load both relations at once
+        select: {
+          no_promo: true,
+          sku: true,
+          matnr: true,
+          price: true,
+          compare_price: true,
+          create_at: true,
+          status: true,
+          shop: true,
+        },
+        relationLoadStrategy: 'query', // More efficient loading strategy
       });
 
       if (!promotion) {

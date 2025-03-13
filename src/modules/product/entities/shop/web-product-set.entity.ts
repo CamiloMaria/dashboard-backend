@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryColumn, OneToMany, Repository } from 'typeorm';
+import { Entity, Column, PrimaryColumn, OneToMany, Relation } from 'typeorm';
 import { WebProductSetRelation } from './web-product-set-relation.entity';
 
 @Entity('web_set_products')
@@ -28,9 +28,6 @@ export class WebSetProducts {
   })
   update_at: Date;
 
-  @OneToMany(
-    () => WebProductSetRelation,
-    (setProductsRelation) => setProductsRelation.set,
-  )
-  setProductsRelation: Repository<WebProductSetRelation>;
+  @OneToMany(() => WebProductSetRelation, (relations) => relations.set)
+  relations: Relation<WebProductSetRelation[]>;
 }

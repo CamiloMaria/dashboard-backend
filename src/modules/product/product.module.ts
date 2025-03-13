@@ -8,6 +8,8 @@ import {
   WebProductImage,
   WebProductPromo,
   WebPromo,
+  WebSetProducts,
+  WebProductSetRelation,
 } from './entities/shop';
 import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
@@ -16,6 +18,9 @@ import { ResponseService } from '../../common/services/response.service';
 import { PromotionController } from './controllers/promotion.controller';
 import { PromotionService } from './services/promotion.service';
 import { PromotionMapper } from './mappers/promotion.mapper';
+import { ProductSetController } from './controllers/product-set.controller';
+import { ProductSetService } from './services/product-set.service';
+import { ProductSetMapper } from './mappers/product-set.mapper';
 
 @Module({
   imports: [
@@ -27,17 +32,21 @@ import { PromotionMapper } from './mappers/promotion.mapper';
         WebCatalog,
         WebPromo,
         WebProductPromo,
+        WebSetProducts,
+        WebProductSetRelation,
       ],
       DatabaseConnection.SHOP,
     ),
   ],
-  controllers: [ProductController, PromotionController],
+  controllers: [ProductController, PromotionController, ProductSetController],
   providers: [
     ProductService,
     ProductMapper,
     ResponseService,
     PromotionService,
     PromotionMapper,
+    ProductSetService,
+    ProductSetMapper,
   ],
   exports: [TypeOrmModule],
 })
