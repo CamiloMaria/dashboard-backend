@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Like, Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
@@ -12,9 +12,14 @@ import {
   SortOrder,
 } from '../dto/product-filter.dto';
 import { ExternalApiService } from '../../../common/services/external-api.service';
+import { ShopilamaProductResponse } from '../interfaces/shopilama-api.interface';
+import { CreateProductResultDto } from '../dto/create-product.dto';
 
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
+  private readonly DEFAULT_STORE = 'PL09';
+
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly productRepository: Repository<WebProduct>,
@@ -279,6 +284,130 @@ export class ProductService {
         {
           success: false,
           message: 'Failed to generate product keywords',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Create products from a list of SKUs
+   * @param skus List of product SKUs to create
+   * @returns Results for each SKU processing
+   */
+  async createProductsFromSkus(
+    skus: string[],
+  ): Promise<CreateProductResultDto[]> {
+    const results: CreateProductResultDto[] = [];
+
+    // Process each SKU in sequence
+    for (const sku of skus) {
+      try {
+        // Check if product already exists
+        const existingProduct = await this.productRepository.findOne({
+          where: { sku },
+        });
+
+        if (existingProduct) {
+          results.push({
+            sku,
+            success: true,
+            message: 'Product already exists',
+          });
+          continue; // Skip to next SKU
+        }
+
+        // Product doesn't exist, call the external API through the ExternalApiService
+        const productData =
+          await this.externalApiService.fetchProductDataFromShopilama(
+            sku,
+            this.DEFAULT_STORE,
+          );
+
+        // Check if the API returned an error
+        if (productData.error) {
+          results.push({
+            sku,
+            success: false,
+            message: `Sku ${sku} No tiene determinación de precio para la tienda ${this.DEFAULT_STORE}`,
+          });
+          continue; // Skip to next SKU
+        }
+
+        // Create and save the new product
+        const newProduct =
+          await this.createProductFromShopilamaData(productData);
+
+        results.push({
+          sku,
+          success: true,
+          message: `Product created successfully: ${newProduct.title}`,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Error creating product with SKU ${sku}: ${error.message}`,
+          error.stack,
+        );
+
+        results.push({
+          sku,
+          success: false,
+          message: `Failed to create product: ${error.message}`,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Create a new product from Shopilama API data
+   * @param productData The product data from the Shopilama API
+   * @returns The created product entity
+   */
+  private async createProductFromShopilamaData(
+    productData: ShopilamaProductResponse,
+  ): Promise<WebProduct> {
+    try {
+      // Create a new product entity with data from the API
+      const newProduct = new WebProduct();
+      newProduct.sku = productData.ean;
+      newProduct.title = productData.title;
+      newProduct.depto = productData.depto;
+      newProduct.grupo = productData.grupo;
+      newProduct.unmanejo = productData.unmanejo;
+      newProduct.tpean = productData.tpean;
+
+      // Map tipo_itbis to type_tax
+      // Based on the description in the entity: '0 = Sin ITBIS, 1 = 18%, 2 = 16%'
+      switch (productData.tipo_itbis) {
+        case '18':
+          newProduct.type_tax = 1;
+          break;
+        case '16':
+          newProduct.type_tax = 2;
+          break;
+        default:
+          newProduct.type_tax = 0;
+      }
+
+      // Set default values
+      newProduct.borrado = false;
+      newProduct.status_new = 0; // New article
+
+      // Save the new product
+      return await this.productRepository.save(newProduct);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create product from Shopilama data: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

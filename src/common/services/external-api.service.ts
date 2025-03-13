@@ -15,7 +15,7 @@ import {
   ChatGptRequestBody,
   ChatGptResponse,
 } from '../interfaces/chat-gpt-api.interface';
-import axios from 'axios';
+import { ShopilamaProductResponse } from '../../modules/product/interfaces/shopilama-api.interface';
 
 @Injectable()
 export class ExternalApiService {
@@ -29,6 +29,7 @@ export class ExternalApiService {
   private readonly DEFAULT_GPT_MODEL = 'gpt-4o-mini';
   private readonly DEFAULT_MAX_TOKENS = 500;
   private readonly DEFAULT_TEMPERATURE = 0.7;
+  private readonly DEFAULT_STORE = 'PL09';
 
   constructor(
     private readonly httpService: HttpService,
@@ -139,15 +140,17 @@ export class ExternalApiService {
     };
 
     try {
-      const response = await axios.post<ChatGptResponse>(
-        `${this.chatGptUrl}/chat/completions`,
-        body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.chatGptApiKey}`,
+      const response = await firstValueFrom(
+        this.httpService.post<ChatGptResponse>(
+          `${this.chatGptUrl}/chat/completions`,
+          body,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.chatGptApiKey}`,
+            },
           },
-        },
+        ),
       );
 
       if (
@@ -171,7 +174,7 @@ export class ExternalApiService {
       if (error instanceof HttpException) {
         throw error;
       }
-      if (axios.isAxiosError(error)) {
+      if (error.isAxiosError) {
         throw new HttpException(
           {
             success: false,
@@ -189,6 +192,49 @@ export class ExternalApiService {
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Fetch product data from Shopilama API
+   * @param sku The product SKU to fetch
+   * @param store The store code (defaults to PL09)
+   * @returns Product data from the API
+   * @throws HttpException if the API call fails
+   */
+  async fetchProductDataFromShopilama(
+    sku: string,
+    store: string = this.DEFAULT_STORE,
+  ): Promise<ShopilamaProductResponse> {
+    try {
+      const path = 'services/search/price';
+      const url = `${this.shopilamaApiBaseUrl}/${path}`;
+
+      const body = {
+        url: path,
+        ean: sku,
+        tienda: store,
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post<ShopilamaProductResponse>(url, body),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch product data from Shopilama API for SKU ${sku}: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to fetch product data from external API',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
       );
     }
   }

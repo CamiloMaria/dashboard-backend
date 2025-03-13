@@ -32,6 +32,10 @@ import {
   GenerateKeywordsDto,
   GenerateKeywordsResponseDto,
 } from '../dto/generate-keywords.dto';
+import {
+  CreateProductsDto,
+  CreateProductResultDto,
+} from '../dto/create-product.dto';
 
 @ApiTags('Products')
 @Controller('products')
@@ -210,6 +214,77 @@ export class ProductController {
         {
           success: false,
           message: 'Failed to generate product keywords',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('create-from-skus')
+  @ApiOperation({
+    summary: 'Create products from a list of SKUs',
+    description:
+      'Create new products by providing an array of SKUs. Checks if each product exists before creating.',
+  })
+  @ApiBody({ type: CreateProductsDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Products processed successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  sku: { type: 'string' },
+                  success: { type: 'boolean' },
+                  message: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async createFromSkus(
+    @Body() createDto: CreateProductsDto,
+  ): Promise<BaseResponse<CreateProductResultDto[]>> {
+    try {
+      const results = await this.productService.createProductsFromSkus(
+        createDto.skus,
+      );
+
+      // Check if any products were successfully created
+      const hasSuccesses = results.some((result) => result.success);
+
+      return this.responseService.success<CreateProductResultDto[]>(
+        results,
+        hasSuccesses
+          ? 'Products processed successfully'
+          : 'No products were created',
+        hasSuccesses ? HttpStatus.CREATED : HttpStatus.OK,
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to process products',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
