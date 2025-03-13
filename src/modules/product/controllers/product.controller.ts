@@ -28,6 +28,10 @@ import {
   GenerateDescriptionDto,
   GenerateDescriptionResponseDto,
 } from '../dto/generate-description.dto';
+import {
+  GenerateKeywordsDto,
+  GenerateKeywordsResponseDto,
+} from '../dto/generate-keywords.dto';
 
 @ApiTags('Products')
 @Controller('products')
@@ -160,6 +164,52 @@ export class ProductController {
         {
           success: false,
           message: 'Failed to generate product description',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('generate-keywords')
+  @ApiOperation({
+    summary: 'Generate SEO keywords for a product using ChatGPT',
+  })
+  @ApiBody({ type: GenerateKeywordsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Keywords generated successfully',
+    type: () => BaseResponse<GenerateKeywordsResponseDto>,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request or AI generation error',
+    type: () => BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: () => BaseResponse<null>,
+  })
+  async generateKeywords(@Body() generateDto: GenerateKeywordsDto) {
+    try {
+      const keywords = await this.productService.generateKeywords(
+        generateDto.productTitle,
+        generateDto.productCategory,
+      );
+
+      return this.responseService.success(
+        { keywords },
+        'Product keywords generated successfully',
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to generate product keywords',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

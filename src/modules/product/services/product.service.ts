@@ -299,4 +299,88 @@ export class ProductService {
       );
     }
   }
+
+  /**
+   * Generate SEO keywords for a product using ChatGPT
+   * @param productTitle The title of the product
+   * @param productCategory The category of the product
+   * @returns Comma-separated list of SEO keywords
+   */
+  async generateKeywords(
+    productTitle: string,
+    productCategory: string,
+  ): Promise<string> {
+    try {
+      if (!this.chatGptUrl || !this.chatGptApiKey) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'ChatGPT API configuration missing',
+            error: 'CONFIGURATION_ERROR',
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const body = {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: `Hola, estamos creando un e-commerce en 
+                República Dominicana y necesitamos crear un listado de keywords 
+                para cada producto de nuestro catalogo que contenga los regionalismos 
+                clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
+                keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
+                categorias. Producto: ${productTitle} y las categorias a que pertenece 
+                son estas: ${productCategory}. Necesito que solo me respondas con el 
+                resultado sea una lista seperada por comma.`,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      };
+
+      const response = await axios.post(
+        `${this.chatGptUrl}/chat/completions`,
+        body,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.chatGptApiKey}`,
+          },
+        },
+      );
+
+      if (
+        !response.data ||
+        !response.data.choices ||
+        response.data.choices.length === 0
+      ) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to generate keywords',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Extract the generated keywords from the response and clean them
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to generate product keywords',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }
