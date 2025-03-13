@@ -119,8 +119,8 @@ export class EnvService {
   }
 
   // External Services
-  get intranet(): string {
-    return this.configService.get<string>(ConfigKeys.INTRANET);
+  get intranetApiBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.INTRANET_API_BASE_URL);
   }
 
   get instaleapApiBaseUrl(): string {
@@ -129,6 +129,10 @@ export class EnvService {
 
   get instaleapApiKey(): string {
     return this.configService.get<string>(ConfigKeys.INSTALEAP_API_KEY);
+  }
+
+  get shopilamaApiBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.SHOPILAMA_API_BASE_URL);
   }
 
   get eCommerceInstaleap(): string {

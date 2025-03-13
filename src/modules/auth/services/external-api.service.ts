@@ -31,7 +31,7 @@ export class ExternalApiService {
     password: string,
   ): Promise<UserLoginResponse> {
     try {
-      const url = `${this.envService.intranet}/auth_ctrl/login`;
+      const url = `${this.envService.intranetApiBaseUrl}/auth_ctrl/login`;
 
       const body = this.getQueryStringParameters({
         usuario: username,
