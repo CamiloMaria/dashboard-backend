@@ -32,17 +32,17 @@ export class ProductController {
   @ApiResponse({
     status: 200,
     description: 'Products retrieved successfully',
-    type: PaginatedResponse<ProductResponseDto>,
+    type: () => PaginatedResponse<ProductResponseDto>,
   })
   @ApiResponse({
     status: 404,
     description: 'No products found',
-    type: BaseResponse,
+    type: () => BaseResponse<null>,
   })
   @ApiResponse({
     status: 500,
     description: 'Internal server error',
-    type: BaseResponse,
+    type: () => BaseResponse<null>,
   })
   async findAll(@Query() filterDto: ProductFilterDto) {
     try {
@@ -50,9 +50,9 @@ export class ProductController {
         await this.productService.findAllPaginated(filterDto);
       return this.responseService.paginate(
         items,
-        meta.total,
-        meta.page,
-        meta.limit,
+        meta.totalItems,
+        meta.currentPage,
+        meta.itemsPerPage,
         'Products retrieved successfully',
       );
     } catch (error) {

@@ -108,8 +108,6 @@ describe('Product Module Integration Tests', () => {
         itemsPerPage: 10,
         totalItems: 1,
         totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false,
       };
 
       const mockPaginatedResponse = {
@@ -129,8 +127,8 @@ describe('Product Module Integration Tests', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveLength(1);
       expect(response.body.meta).toBeDefined();
-      expect(response.body.meta.page).toBe(1);
-      expect(response.body.meta.limit).toBe(10);
+      expect(response.body.meta.currentPage).toBe(1);
+      expect(response.body.meta.itemsPerPage).toBe(10);
     });
 
     it('should handle search parameters', async () => {
@@ -142,8 +140,6 @@ describe('Product Module Integration Tests', () => {
           itemsPerPage: 10,
           totalItems: 0,
           totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: false,
         },
       });
 

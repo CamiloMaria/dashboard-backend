@@ -7,6 +7,7 @@ import { DatabaseConnection } from '../src/config/database/constants';
 import { ProductResponseDto } from '../src/modules/product/dto/product-response.dto';
 import { Like } from 'typeorm';
 import { ProductMapper } from '../src/modules/product/mappers/product.mapper';
+import { ResponseService } from '../src/common/services/response.service';
 
 import {
   WebCatalog,
@@ -200,6 +201,36 @@ describe('ProductController (e2e)', () => {
       .useValue(mockDataSource)
       .overrideProvider(ProductMapper)
       .useValue(mockProductMapper)
+      .overrideProvider(ResponseService)
+      .useValue({
+        success: jest.fn().mockImplementation((data, message, meta) => ({
+          success: true,
+          message: message || 'Operation successful',
+          data,
+          ...(meta && { meta }),
+        })),
+        error: jest.fn().mockImplementation((message, errorCode, meta) => ({
+          success: false,
+          message,
+          error: errorCode,
+          ...(meta && { meta }),
+        })),
+        paginate: jest
+          .fn()
+          .mockImplementation(
+            (data, totalItems, currentPage, itemsPerPage, message) => ({
+              success: true,
+              message: message || 'Operation successful',
+              data,
+              meta: {
+                totalItems,
+                currentPage,
+                itemsPerPage,
+                totalPages: Math.ceil(totalItems / itemsPerPage),
+              },
+            }),
+          ),
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -240,17 +271,15 @@ describe('ProductController (e2e)', () => {
   });
 
   describe('GET /products', () => {
-    it('should return paginated list of products', async () => {
+    it('should return all products', async () => {
       const response = await request(app.getHttpServer())
         .get('/products')
         .expect(200);
 
       expect(response.body.success).toBeTruthy();
-      expect(Array.isArray(response.body.data)).toBeTruthy();
+      expect(response.body.data).toHaveLength(mappedProducts.length);
       expect(response.body.meta).toBeDefined();
-      expect(response.body.meta.totalItems).toBeGreaterThanOrEqual(
-        testProducts.length,
-      );
+      expect(response.body.meta.totalItems).toBe(testProducts.length);
     });
 
     it('should filter products by title', async () => {

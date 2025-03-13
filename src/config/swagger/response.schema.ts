@@ -32,13 +32,13 @@ export class BaseResponse<T> {
  */
 export class PaginationMeta {
   @ApiProperty({ example: 1, description: 'Current page number' })
-  page: number;
+  currentPage: number;
 
   @ApiProperty({ example: 1, description: 'Items per page' })
-  limit: number;
+  itemsPerPage: number;
 
   @ApiProperty({ example: 36306, description: 'Total number of items' })
-  total: number;
+  totalItems: number;
 
   @ApiProperty({ example: 36306, description: 'Total number of pages' })
   totalPages: number;

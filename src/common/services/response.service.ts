@@ -1,4 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import {
+  BaseResponse,
+  PaginatedResponse,
+  PaginationMeta,
+} from '../../config/swagger/response.schema';
 
 /**
  * Interface for standardized responses
@@ -20,7 +25,7 @@ export class ResponseService {
     data: T,
     message = 'Operation successful',
     meta?: any,
-  ): Response<T> {
+  ): BaseResponse<T> {
     return {
       success: true,
       message,
@@ -33,29 +38,31 @@ export class ResponseService {
    * Create a paginated response with metadata
    */
   paginate<T>(
-    data: T,
-    total: number,
-    page: number,
-    limit: number,
+    data: T[],
+    totalItems: number,
+    currentPage: number,
+    itemsPerPage: number,
     message = 'Operation successful',
-  ): Response<T> {
+  ): PaginatedResponse<T> {
+    const meta: PaginationMeta = {
+      currentPage,
+      itemsPerPage,
+      totalItems,
+      totalPages: Math.ceil(totalItems / itemsPerPage),
+    };
+
     return {
       success: true,
       message,
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta,
     };
   }
 
   /**
    * Create an error response
    */
-  error<T>(message: string, errorCode?: string, meta?: any): Response<T> {
+  error<T>(message: string, errorCode?: string, meta?: any): BaseResponse<T> {
     return {
       success: false,
       message,
