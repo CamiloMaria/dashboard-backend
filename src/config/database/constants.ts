@@ -1,5 +1,5 @@
 export enum DatabaseConnection {
   SHOP = 'shop',
-  INTRANET36 = 'intranet36',
+  INTRANET = 'intranet',
   ORACLE = 'oracle',
 }

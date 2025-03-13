@@ -20,9 +20,9 @@ import { DatabaseConnection } from './constants';
       inject: [EnvService, LoggerService],
     }),
     TypeOrmModule.forRootAsync({
-      name: DatabaseConnection.INTRANET36,
+      name: DatabaseConnection.INTRANET,
       useFactory: (envService: EnvService, logger: LoggerService) => {
-        const config = envService.getIntranet36DatabaseConfig();
+        const config = envService.getIntranetDatabaseConfig();
         logger.log(
           `TypeORM connected to ${config.database} database`,
           'DatabaseModule',

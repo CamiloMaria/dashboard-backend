@@ -194,7 +194,7 @@ describe('ProductController (e2e)', () => {
       .useValue(mockRepository)
       .overrideProvider(getDataSourceToken(DatabaseConnection.SHOP))
       .useValue(mockDataSource)
-      .overrideProvider(getDataSourceToken(DatabaseConnection.INTRANET36))
+      .overrideProvider(getDataSourceToken(DatabaseConnection.INTRANET))
       .useValue(mockDataSource)
       .overrideProvider(getDataSourceToken(DatabaseConnection.ORACLE))
       .useValue(mockDataSource)

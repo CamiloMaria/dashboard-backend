@@ -81,20 +81,24 @@ export class EnvService {
   }
 
   // Database - Secondary
-  get host36(): string {
-    return this.configService.get<string>(ConfigKeys.HOST_36);
+  get hostIntranet(): string {
+    return this.configService.get<string>(ConfigKeys.HOST_INTRANET);
   }
 
-  get username36(): string {
-    return this.configService.get<string>(ConfigKeys.USERNAME_36);
+  get portIntranet(): number {
+    return +this.configService.get<number>(ConfigKeys.PORT_INTRANET);
   }
 
-  get password36(): string {
-    return this.configService.get<string>(ConfigKeys.PASSWORD_36);
+  get usernameIntranet(): string {
+    return this.configService.get<string>(ConfigKeys.USERNAME_INTRANET);
   }
 
-  get database36(): string {
-    return this.configService.get<string>(ConfigKeys.DATABASE_36);
+  get passwordIntranet(): string {
+    return this.configService.get<string>(ConfigKeys.PASSWORD_INTRANET);
+  }
+
+  get databaseIntranet(): string {
+    return this.configService.get<string>(ConfigKeys.DATABASE_INTRANET);
   }
 
   // Database - Oracle
@@ -171,13 +175,14 @@ export class EnvService {
     };
   }
 
-  getIntranet36DatabaseConfig(): MysqlConnectionOptions {
+  getIntranetDatabaseConfig(): MysqlConnectionOptions {
     return {
       type: 'mysql',
-      host: this.host36,
-      username: this.username36,
-      password: this.password36,
-      database: this.database36,
+      host: this.hostIntranet,
+      port: this.portIntranet,
+      username: this.usernameIntranet,
+      password: this.passwordIntranet,
+      database: this.databaseIntranet,
       synchronize: false,
       logging: this.environment === 'development',
       entities: ['dist/**/entities/intranet/*.entity{.ts,.js}'],

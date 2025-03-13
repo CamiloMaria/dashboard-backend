@@ -11,6 +11,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EnvService } from '../../config/env/env.service';
 import { Public } from '../../modules/auth/decorators/public.decorator';
+import { DatabaseConnection } from '../../config/database/constants';
 
 /**
  * Controller for health check endpoints
@@ -23,9 +24,12 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
     private http: HttpHealthIndicator,
     private envService: EnvService,
-    @InjectDataSource('shop') private shopConnection: DataSource,
-    @InjectDataSource('intranet36') private intranet36Connection: DataSource,
-    @InjectDataSource('oracle') private oracleConnection: DataSource,
+    @InjectDataSource(DatabaseConnection.SHOP)
+    private shopConnection: DataSource,
+    @InjectDataSource(DatabaseConnection.INTRANET)
+    private intranetConnection: DataSource,
+    @InjectDataSource(DatabaseConnection.ORACLE)
+    private oracleConnection: DataSource,
   ) {}
 
   /**
@@ -60,8 +64,8 @@ export class HealthController {
     return this.health.check([
       () => this.db.pingCheck('shop', { connection: this.shopConnection }),
       () =>
-        this.db.pingCheck('intranet36', {
-          connection: this.intranet36Connection,
+        this.db.pingCheck('intranet', {
+          connection: this.intranetConnection,
         }),
       () =>
         this.db.pingCheck('oracle', {

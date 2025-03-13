@@ -59,15 +59,21 @@ export const envValidationSchema = Joi.object({
     .description('Shopilama database password'),
   SHOP_DATABASE: Joi.string().required().description('Shopilama database name'),
 
-  // Database - Secondary
-  HOST_36: Joi.string().required().description('Secondary database host'),
-  USERNAME_36: Joi.string()
+  // Database - Intranet
+  HOST_INTRANET: Joi.string().required().description('Intranet database host'),
+  PORT_INTRANET: Joi.number()
+    .port()
     .required()
-    .description('Secondary database username'),
-  PASSWORD_36: Joi.string()
+    .description('Intranet database port'),
+  USERNAME_INTRANET: Joi.string()
     .required()
-    .description('Secondary database password'),
-  DATABASE_36: Joi.string().required().description('Secondary database name'),
+    .description('Intranet database username'),
+  PASSWORD_INTRANET: Joi.string()
+    .required()
+    .description('Intranet database password'),
+  DATABASE_INTRANET: Joi.string()
+    .required()
+    .description('Intranet database name'),
 
   // Oracle Database
   ORACLE_USERNAME: Joi.string()
