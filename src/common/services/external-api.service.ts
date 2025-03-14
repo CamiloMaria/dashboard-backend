@@ -13,6 +13,7 @@ import {
   ChatGptMessage,
   ChatGptRequestBody,
   ChatGptResponse,
+  CreateProductInstaleap,
   ShopilamaProductResponse,
   UserLoginResponse,
 } from '../interfaces';
@@ -23,6 +24,9 @@ export class ExternalApiService {
 
   private readonly intranetApiBaseUrl: string;
   private readonly shopilamaApiBaseUrl: string;
+
+  private readonly instaleapApiBaseUrl: string;
+  private readonly instaleapApiKey: string;
 
   private readonly chatGptUrl: string;
   private readonly chatGptApiKey: string;
@@ -39,6 +43,8 @@ export class ExternalApiService {
     this.shopilamaApiBaseUrl = this.envService.shopilamaApiBaseUrl;
     this.chatGptUrl = this.envService.chatGptUrl;
     this.chatGptApiKey = this.envService.chatGptApiKey;
+    this.instaleapApiBaseUrl = this.envService.instaleapApiBaseUrl;
+    this.instaleapApiKey = this.envService.instaleapApiKey;
   }
 
   /**
@@ -232,6 +238,43 @@ export class ExternalApiService {
         {
           success: false,
           message: 'Failed to fetch product data from external API',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Create product in Instaleap
+   * @param product The product data to create in Instaleap
+   * @throws HttpException if the API call fails
+   */
+  async createProductInstaleap(
+    product: CreateProductInstaleap,
+  ): Promise<boolean> {
+    try {
+      const url = `${this.instaleapApiBaseUrl}/product/products`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, product, {
+          headers: {
+            'x-api-key': this.instaleapApiKey,
+          },
+        }),
+      );
+
+      return response.status === 201;
+    } catch (error) {
+      this.logger.error(
+        `Error creating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product in Instaleap',
           error: error.message,
         },
         HttpStatus.BAD_GATEWAY,

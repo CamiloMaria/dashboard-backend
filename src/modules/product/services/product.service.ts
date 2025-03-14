@@ -17,7 +17,10 @@ import {
   CreateProductResultDto,
   ProductCreationStatus,
 } from '../dto/create-product.dto';
-import { LoggerService } from 'src/config';
+import { EnvService, LoggerService } from 'src/config';
+import { CreateProductInstaleap } from 'src/common/interfaces';
+import { WebProductGroup } from '../entities/shop/web-product-group.entity';
+
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
@@ -25,8 +28,11 @@ export class ProductService {
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly webProductRepository: Repository<WebProduct>,
+    @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
+    private readonly webProductGroupRepository: Repository<WebProductGroup>,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
+    private readonly envService: EnvService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -348,6 +354,61 @@ export class ProductService {
           productData,
           username,
         );
+
+        if (!newProduct) {
+          results.push({
+            sku,
+            success: false,
+            message: 'Failed to create product',
+            status: ProductCreationStatus.ERROR,
+          });
+          continue; // Skip to next SKU
+        }
+
+        // Get bigItems value from WebProductGroup
+        let bigItems = 0;
+        try {
+          const productGroup = await this.webProductGroupRepository.findOne({
+            where: { group_sap: newProduct.grupo },
+          });
+
+          if (productGroup) {
+            bigItems = productGroup.bigItems;
+          }
+        } catch (groupError) {
+          this.logger.error(
+            `Error fetching product group for SKU ${sku}: ${groupError.message}`,
+            groupError.stack,
+          );
+          // Continue with default bigItems value
+        }
+
+        // Create product in Instaleap
+        const instaleapProduct: CreateProductInstaleap = {
+          name: newProduct.title,
+          photosUrl: [
+            `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
+          ],
+          sku: newProduct.sku,
+          unit: newProduct.unmanejo || 'UND',
+          ean: [newProduct.sku],
+          description: newProduct.description_instaleap,
+          bigItems: bigItems,
+          brand: newProduct.brand,
+        };
+
+        try {
+          await this.externalApiService.createProductInstaleap(
+            instaleapProduct,
+          );
+          this.logger.log(`Product ${sku} created successfully in Instaleap`);
+        } catch (instaleapError) {
+          this.logger.error(
+            `Failed to create product ${sku} in Instaleap: ${instaleapError.message}`,
+            instaleapError.stack,
+          );
+          // Continue with the process even if Instaleap creation fails
+        }
 
         results.push({
           sku,

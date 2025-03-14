@@ -248,7 +248,7 @@ export class ProductController {
     }
   }
 
-  @Post('create-from-skus')
+  @Post()
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create products from a list of SKUs',
