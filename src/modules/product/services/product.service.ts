@@ -14,6 +14,7 @@ import {
 import { ExternalApiService } from '../../../common/services/external-api.service';
 import { ShopilamaProductResponse } from 'src/common';
 import { CreateProductResultDto } from '../dto/create-product.dto';
+import { ProductCreationStatus } from '../dto/create-product.dto';
 
 @Injectable()
 export class ProductService {
@@ -316,6 +317,7 @@ export class ProductService {
             sku,
             success: true,
             message: 'Product already exists',
+            status: ProductCreationStatus.EXISTING,
           });
           continue; // Skip to next SKU
         }
@@ -333,6 +335,7 @@ export class ProductService {
             sku,
             success: false,
             message: `Sku ${sku} No tiene determinación de precio para la tienda ${this.DEFAULT_STORE}`,
+            status: ProductCreationStatus.NO_PRICE,
           });
           continue; // Skip to next SKU
         }
@@ -348,6 +351,7 @@ export class ProductService {
           sku,
           success: true,
           message: `Product created successfully: ${newProduct.title}`,
+          status: ProductCreationStatus.CREATED,
         });
       } catch (error) {
         this.logger.error(
@@ -359,6 +363,7 @@ export class ProductService {
           sku,
           success: false,
           message: `Failed to create product: ${error.message}`,
+          status: ProductCreationStatus.ERROR,
         });
       }
     }

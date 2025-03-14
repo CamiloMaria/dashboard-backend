@@ -187,9 +187,9 @@ export class AuthController {
       }),
     )
     loginDto: LoginDto,
-  ): Promise<UserLoginResponseDto> {
+  ): Promise<BaseResponse<UserLoginResponseDto>> {
     const result = await this.authService.login(loginDto);
-    return result;
+    return this.responseService.success(result, 'Login successful');
   }
 
   @ApiOperation({ summary: 'Check health of the authentication service' })

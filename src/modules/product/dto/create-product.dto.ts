@@ -13,8 +13,16 @@ export class CreateProductsDto {
   skus: string[];
 }
 
+export enum ProductCreationStatus {
+  CREATED = 'CREATED',
+  EXISTING = 'EXISTING',
+  NO_PRICE = 'NO_PRICE',
+  ERROR = 'ERROR',
+}
+
 export class CreateProductResultDto {
   sku: string;
   success: boolean;
   message: string;
+  status: ProductCreationStatus;
 }
