@@ -5,8 +5,18 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  Post,
+  Body,
+  Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ProductSetService } from '../services/product-set.service';
 import { ProductSetResponseDto } from '../dto/product-set-response.dto';
 import { ProductSetFilterDto } from '../dto/product-set-filter.dto';
@@ -15,6 +25,11 @@ import {
   PaginatedResponse,
 } from '../../../config/swagger/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
+import {
+  CreateProductSetDto,
+  CreateProductSetResultDto,
+} from '../dto/create-product-set.dto';
+import { RequestWithUser } from 'src/common/interfaces/request.interface';
 
 @ApiTags('Product Sets')
 @Controller('product-sets')
@@ -25,6 +40,7 @@ export class ProductSetController {
   ) {}
 
   @Get()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all product sets with pagination, search, and sorting',
   })
@@ -70,6 +86,7 @@ export class ProductSetController {
   }
 
   @Get(':sku')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a product set by SKU' })
   @ApiParam({ name: 'sku', description: 'Product Set SKU', type: 'string' })
   @ApiResponse({
@@ -105,6 +122,132 @@ export class ProductSetController {
           error: error.message,
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('by-product/:sku')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get product sets containing a specific product' })
+  @ApiParam({
+    name: 'sku',
+    description: 'Product SKU to search for in sets',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product sets retrieved successfully',
+    type: () => BaseResponse<ProductSetResponseDto[]>,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No product sets found with the given product',
+    type: () => BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: () => BaseResponse<null>,
+  })
+  async findByProductSku(@Param('sku') productSku: string) {
+    try {
+      const productSets =
+        await this.productSetService.findByProductSku(productSku);
+      return this.responseService.success(
+        productSets,
+        'Product sets retrieved successfully',
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to retrieve product sets',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create a product set (bundle)',
+    description:
+      'Create a product set by combining multiple products. Validates products exist, have images, and belong to the same group.',
+  })
+  @ApiBody({ type: CreateProductSetDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Product set created successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+                status: { type: 'string' },
+                setId: { type: 'number' },
+                setTitle: { type: 'string' },
+                totalPrice: { type: 'number' },
+                productCount: { type: 'number' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or cannot create set',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async createProductSet(
+    @Body() createSetDto: CreateProductSetDto,
+    @Request() req: RequestWithUser,
+  ): Promise<BaseResponse<CreateProductSetResultDto>> {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      const result = await this.productSetService.createProductSet(
+        createSetDto,
+        username,
+      );
+
+      return this.responseService.success<CreateProductSetResultDto>(
+        result,
+        result.success
+          ? 'Product set created successfully'
+          : 'Failed to create product set',
+        result.success ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST,
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product set',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

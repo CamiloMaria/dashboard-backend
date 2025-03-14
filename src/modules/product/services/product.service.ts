@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Like, Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
@@ -12,20 +12,22 @@ import {
   SortOrder,
 } from '../dto/product-filter.dto';
 import { ExternalApiService } from '../../../common/services/external-api.service';
-import { ShopilamaProductResponse } from 'src/common';
-import { CreateProductResultDto } from '../dto/create-product.dto';
-import { ProductCreationStatus } from '../dto/create-product.dto';
-
+import { ShopilamaProductResponse } from '../../../common/interfaces/shopilama-api.interface';
+import {
+  CreateProductResultDto,
+  ProductCreationStatus,
+} from '../dto/create-product.dto';
+import { LoggerService } from 'src/config';
 @Injectable()
 export class ProductService {
-  private readonly logger = new Logger(ProductService.name);
   private readonly DEFAULT_STORE = 'PL09';
 
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
-    private readonly productRepository: Repository<WebProduct>,
+    private readonly webProductRepository: Repository<WebProduct>,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -71,7 +73,7 @@ export class ProductService {
       }
 
       // Get total count of active products matching the search criteria
-      const totalItems = await this.productRepository.count({
+      const totalItems = await this.webProductRepository.count({
         where: whereConditions,
       });
 
@@ -85,7 +87,7 @@ export class ProductService {
       }
 
       // Find products matching the search criteria with pagination
-      const products = await this.productRepository.find({
+      const products = await this.webProductRepository.find({
         where: whereConditions,
         relations: ['images', 'catalogs'],
         skip: offset,
@@ -141,7 +143,7 @@ export class ProductService {
   async findAll(): Promise<ProductResponseDto[]> {
     try {
       // Find all active products with their related images and catalogs
-      const products = await this.productRepository.find({
+      const products = await this.webProductRepository.find({
         where: { borrado: false },
         relations: ['images', 'catalogs'],
         take: 10,
@@ -184,7 +186,7 @@ export class ProductService {
    */
   async findById(id: number): Promise<ProductResponseDto> {
     try {
-      const product = await this.productRepository.findOne({
+      const product = await this.webProductRepository.findOne({
         where: { num: id },
         relations: ['images', 'catalogs'],
       });
@@ -308,7 +310,7 @@ export class ProductService {
     for (const sku of skus) {
       try {
         // Check if product already exists
-        const existingProduct = await this.productRepository.findOne({
+        const existingProduct = await this.webProductRepository.findOne({
           where: { sku },
         });
 
@@ -406,7 +408,7 @@ export class ProductService {
       newProduct.status_new = 0; // New article
 
       // Save the new product
-      return await this.productRepository.save(newProduct);
+      return await this.webProductRepository.save(newProduct);
     } catch (error) {
       this.logger.error(
         `Failed to create product from Shopilama data: ${error.message}`,
