@@ -18,7 +18,6 @@ import {
   ProductCreationStatus,
 } from '../dto/create-product.dto';
 import { EnvService, LoggerService } from 'src/config';
-import { CreateProductInstaleap } from 'src/common/interfaces';
 import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 
 @Injectable()
@@ -383,24 +382,20 @@ export class ProductService {
           // Continue with default bigItems value
         }
 
-        // Create product in Instaleap
-        const instaleapProduct: CreateProductInstaleap = {
-          name: newProduct.title,
-          photosUrl: [
-            `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
-          ],
-          sku: newProduct.sku,
-          unit: newProduct.unmanejo || 'UND',
-          ean: [newProduct.sku],
-          description: newProduct.description_instaleap,
-          bigItems: bigItems,
-          brand: newProduct.brand,
-        };
-
         try {
-          await this.externalApiService.createProductInstaleap(
-            instaleapProduct,
-          );
+          await this.externalApiService.createProductInstaleap({
+            name: newProduct.title,
+            photosUrl: [
+              `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
+            ],
+            sku: newProduct.sku,
+            unit: newProduct.unmanejo || 'UND',
+            ean: [newProduct.sku],
+            description: newProduct.description_instaleap,
+            bigItems: bigItems,
+            brand: newProduct.brand,
+          });
+
           this.logger.log(`Product ${sku} created successfully in Instaleap`);
         } catch (instaleapError) {
           this.logger.error(

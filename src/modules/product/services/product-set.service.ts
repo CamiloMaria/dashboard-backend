@@ -22,7 +22,8 @@ import {
   CreateProductSetResultDto,
   ProductSetCreationStatus,
 } from '../dto/create-product-set.dto';
-import { LoggerService } from 'src/config';
+import { EnvService, LoggerService } from 'src/config';
+import { ExternalApiService } from 'src/common';
 @Injectable()
 export class ProductSetService {
   constructor(
@@ -39,6 +40,8 @@ export class ProductSetService {
     @InjectDataSource(DatabaseConnection.SHOP)
     private readonly shopDataSource: DataSource,
     private readonly productSetMapper: ProductSetMapper,
+    private readonly externalApiService: ExternalApiService,
+    private readonly envService: EnvService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -309,17 +312,17 @@ export class ProductSetService {
         (image) => image.src_cloudflare,
       );
 
-      if (
-        productsWithImages.length === 0 ||
-        productsWithCloudflareImages.length === 0
-      ) {
-        return {
-          success: false,
-          message: 'None of the products have images',
-          status: ProductSetCreationStatus.NO_IMAGES,
-          failedProducts: skus,
-        };
-      }
+      // if (
+      //   productsWithImages.length === 0 ||
+      //   productsWithCloudflareImages.length === 0
+      // ) {
+      //   return {
+      //     success: false,
+      //     message: 'None of the products have images',
+      //     status: ProductSetCreationStatus.NO_IMAGES,
+      //     failedProducts: skus,
+      //   };
+      // }
 
       // Check if all products are from the same group
       const groups = existingProducts.map((product) => product.grupo);
@@ -350,10 +353,16 @@ export class ProductSetService {
       const catalogEntries = await this.webCatalogRepository.findBy({
         sku: In(skus),
       });
-      if (catalogEntries.length !== skus.length) {
-        const catalogSkus = catalogEntries.map((entry) => entry.sku);
+
+      // Get unique SKUs from catalog entries
+      const uniqueCatalogSkus = [
+        ...new Set(catalogEntries.map((entry) => entry.sku)),
+      ];
+
+      // Check if all SKUs have at least one catalog entry
+      if (uniqueCatalogSkus.length !== skus.length) {
         const missingFromCatalog = skus.filter(
-          (sku) => !catalogSkus.includes(sku),
+          (sku) => !uniqueCatalogSkus.includes(sku),
         );
         return {
           success: false,
@@ -368,11 +377,24 @@ export class ProductSetService {
         .filter((product) => (product.isFree ? 1 : 0))
         .join(',');
 
-      // Calculate total price
-      const totalPrice = catalogEntries.reduce(
-        (sum, entry) => sum + entry.price,
+      // Filter catalog entries to only include those from CD01 store
+      const cd01CatalogEntries = catalogEntries.filter(
+        (entry) => entry.pl === 'CD01',
+      );
+
+      // Calculate total price using only CD01 entries
+      const totalPrice = cd01CatalogEntries.reduce(
+        (sum, entry) => sum + Number(entry.price),
         0,
       );
+
+      // Calculate stock as the minimum stock from CD01 catalog entries
+      const stock =
+        cd01CatalogEntries.length > 0
+          ? Math.min(
+              ...cd01CatalogEntries.map((entry) => Number(entry.stock) || 0),
+            )
+          : 0;
 
       // Call the stored procedure to create the set
       await this.shopDataSource.query('CALL CreateSetProduct(?, ?, ?, ?, ?)', [
@@ -383,12 +405,112 @@ export class ProductSetService {
         freeProducts,
       ]);
 
-      // delay 1 second
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      for (const catalogEntry of catalogEntries) {
+        await this.externalApiService.updateCatalogInInstaleap(
+          {
+            sku: catalogEntry.sku,
+            storeReference: catalogEntry.pl,
+          },
+          {
+            isActive: false,
+          },
+        );
+
+        if (catalogEntry.pl === 'PL08') {
+          await this.externalApiService.updateCatalogInInstaleap(
+            {
+              sku: catalogEntry.sku,
+              storeReference: `${catalogEntry.pl}-D`,
+            },
+            { isActive: false },
+          );
+        }
+      }
 
       const productSet = await this.productSetRepository.findOneBy({
-        title,
+        title: 'A/A TECNOMASTER INT24/EXT24 12,000 BTU',
       });
+
+      // Get all images from the first product that has images
+      // Extract image URLs from the products with images
+      const productImages = productsWithCloudflareImages
+        .map((product) => product.src_cloudflare)
+        .filter(Boolean);
+
+      await this.externalApiService.createProductInstaleap({
+        name: productSet.title,
+        sku: productSet.set_sku,
+        unit: existingProducts[0].unmanejo || 'UND',
+        photosUrl:
+          productImages && productImages.length > 0
+            ? productImages
+            : [
+                `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
+              ],
+        ean: [productSet.set_sku],
+        description: existingProducts[0].description_instaleap,
+        bigItems: productsGroup.bigItems,
+        brand: existingProducts[0].brand,
+      });
+
+      // Get unique store references (pl values) from catalog entries
+      const uniqueStores = [
+        ...new Set(catalogEntries.map((entry) => entry.pl)),
+      ];
+
+      // Create a catalog entry in Instaleap for each store
+      for (const storeReference of uniqueStores) {
+        await this.externalApiService.createCatalogInInstaleap({
+          product: {
+            sku: productSet.set_sku,
+          },
+          store: {
+            storeReference,
+          },
+          categoriesAggregated: [
+            {
+              categoryReference: productsGroup.level1_instaleap,
+            },
+            {
+              categoryReference: productsGroup.level2_instaleap,
+            },
+            {
+              categoryReference: productsGroup.level3_instaleap,
+            },
+          ],
+          price: Number(productSet.price),
+          stock: stock,
+          isActive: stock > existingProducts[0].security_stock,
+          securityStock: existingProducts[0].security_stock,
+        });
+
+        // For PL08, also create a catalog entry for PL08-D
+        if (storeReference === 'PL08') {
+          await this.externalApiService.createCatalogInInstaleap({
+            product: {
+              sku: productSet.set_sku,
+            },
+            store: {
+              storeReference: `${storeReference}-D`,
+            },
+            categoriesAggregated: [
+              {
+                categoryReference: productsGroup.level1_instaleap,
+              },
+              {
+                categoryReference: productsGroup.level2_instaleap,
+              },
+              {
+                categoryReference: productsGroup.level3_instaleap,
+              },
+            ],
+            price: productSet.price,
+            stock: stock,
+            isActive: stock > existingProducts[0].security_stock,
+            securityStock: existingProducts[0].security_stock,
+          });
+        }
+      }
 
       return {
         success: true,

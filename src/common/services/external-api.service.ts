@@ -16,6 +16,8 @@ import {
   CreateProductInstaleap,
   ShopilamaProductResponse,
   UserLoginResponse,
+  UpdateCatalogInstaleap,
+  CreateCatalogInstaleap,
 } from '../interfaces';
 
 @Injectable()
@@ -266,6 +268,11 @@ export class ExternalApiService {
 
       return response.status === 201;
     } catch (error) {
+      // Skip 409 errors as they indicate the product is already up to date
+      if (error.response?.status === 409) {
+        return true;
+      }
+
       this.logger.error(
         `Error creating product in Instaleap: ${error.message}`,
         error.stack,
@@ -279,6 +286,76 @@ export class ExternalApiService {
         },
         HttpStatus.BAD_GATEWAY,
       );
+    }
+  }
+
+  /**
+   * Create catalog in Instaleap
+   * @param body The catalog data to create in Instaleap
+   * @returns The response from Instaleap or null if the operation fails
+   */
+  async createCatalogInInstaleap(body: CreateCatalogInstaleap) {
+    try {
+      const url = `${this.instaleapApiBaseUrl}/catalog/catalogs`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, body, {
+          headers: {
+            'x-api-key': this.instaleapApiKey,
+          },
+        }),
+      );
+
+      return response.status === 200;
+    } catch (error) {
+      // Skip 409 errors as they indicate the catalog is already up to date
+      if (error.response?.status === 409) {
+        return true;
+      }
+
+      this.logger.error(
+        `Error creating catalog in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      return null;
+    }
+  }
+
+  /**
+   * Update catalog in Instaleap
+   * @param params Parameters containing SKU and store reference
+   * @param body The catalog data to update in Instaleap
+   * @returns The response from Instaleap or null if the operation fails
+   */
+  async updateCatalogInInstaleap(
+    params: { sku: string; storeReference: string },
+    body: UpdateCatalogInstaleap,
+  ) {
+    try {
+      const url = `${this.instaleapApiBaseUrl}/catalog/catalogs/sku/${params.sku}/storeReference/${params.storeReference}`;
+
+      const response = await firstValueFrom(
+        this.httpService.put(url, body, {
+          headers: {
+            'x-api-key': this.instaleapApiKey,
+          },
+        }),
+      );
+
+      return response.status === 200 || response.status === 204;
+    } catch (error) {
+      // Skip 409 errors as they indicate the catalog is already up to date
+      if (error.response?.status === 409) {
+        return true;
+      }
+
+      this.logger.error(
+        `Error updating catalog in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      return null;
     }
   }
 }
