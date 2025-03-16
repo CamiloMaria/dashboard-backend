@@ -32,7 +32,10 @@ export class ExternalApiService {
   private readonly instaleapApiBaseUrl: string;
   private readonly instaleapApiKey: string;
 
-  private readonly cloudflareBatchUrl: string;
+  private readonly cloudflareBaseUrl: string;
+  private readonly cloudflareAccountId: string;
+  private readonly cloudflareApiToken: string;
+  private readonly cloudflareImageDns: string;
 
   private readonly chatGptUrl: string;
   private readonly chatGptApiKey: string;
@@ -51,7 +54,10 @@ export class ExternalApiService {
     this.chatGptApiKey = this.envService.chatGptApiKey;
     this.instaleapApiBaseUrl = this.envService.instaleapApiBaseUrl;
     this.instaleapApiKey = this.envService.instaleapApiKey;
-    this.cloudflareBatchUrl = this.envService.cloudflareBatchUrl;
+    this.cloudflareBaseUrl = this.envService.cloudflareBaseUrl;
+    this.cloudflareAccountId = this.envService.cloudflareAccountId;
+    this.cloudflareApiToken = this.envService.cloudflareApiToken;
+    this.cloudflareImageDns = this.envService.cloudflareImageDns;
   }
 
   /**
@@ -448,7 +454,7 @@ export class ExternalApiService {
     try {
       const { data } = await lastValueFrom(
         this.httpService.post(
-          `${this.cloudflareBatchUrl}/images/v1`,
+          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1`,
           formData,
           {
             headers: {
@@ -469,6 +475,41 @@ export class ExternalApiService {
           HttpStatus.BAD_GATEWAY,
         );
       }
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes an image from Cloudflare Images
+   * @param imageId The ID of the image to delete
+   * @returns The response from Cloudflare Images API
+   */
+  async deleteImage(imageId: string): Promise<CloudflareResponse> {
+    try {
+      const { data } = await lastValueFrom(
+        this.httpService.delete(
+          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1/${imageId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.cloudflareApiToken}`,
+            },
+          },
+        ),
+      );
+
+      if (!data || data.success === false) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to delete image from Cloudflare',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
       return data;
     } catch (error) {
       throw error;

@@ -155,8 +155,20 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_PREFIX);
   }
 
-  get cloudflareBatchUrl(): string {
-    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_BATCH_URL);
+  get cloudflareBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_BASE_URL);
+  }
+
+  get cloudflareAccountId(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_ACCOUNT_ID);
+  }
+
+  get cloudflareApiToken(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_API_TOKEN);
+  }
+
+  get cloudflareImageDns(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_DNS);
   }
 
   get ptlogBaseUrl(): string {
