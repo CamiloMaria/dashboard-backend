@@ -52,6 +52,26 @@ export interface CreateProductInstaleap {
   bigItems?: number;
   suggestedReplacementClient?: string[];
 }
+
+export interface UpdateProductInstaleap {
+  name?: string;
+  photosUrl?: string[];
+  unit?: string;
+  clickMultiplier?: number;
+  ean?: string[];
+  boost?: number;
+  description?: string;
+  brand?: string;
+  searchKeywords?: string;
+  subQty?: number;
+  nutritionalDetails?: string;
+  relatedProducts?: string[];
+  ingredients?: string[];
+  specifications?: Specification[] | [];
+  bigItems?: number;
+  suggestedReplacementClient?: string[];
+}
+
 export interface CreateCatalogInstaleap {
   product: {
     sku: string;

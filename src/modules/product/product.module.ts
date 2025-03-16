@@ -22,6 +22,7 @@ import { PromotionMapper } from './mappers/promotion.mapper';
 import { ProductSetController } from './controllers/product-set.controller';
 import { ProductSetService } from './services/product-set.service';
 import { ProductSetMapper } from './mappers/product-set.mapper';
+import { ProductImageService } from './services/product-image.service';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ProductSetMapper } from './mappers/product-set.mapper';
     PromotionMapper,
     ProductSetService,
     ProductSetMapper,
+    ProductImageService,
   ],
   exports: [TypeOrmModule],
 })

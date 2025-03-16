@@ -113,9 +113,19 @@ export const envValidationSchema = Joi.object({
     .uri()
     .required()
     .description('Base Cloudflare image URL'),
+  CLOUDFLARE_IMAGE_PREFIX: Joi.string()
+    .uri()
+    .required()
+    .description('Cloudflare image prefix'),
+
   PTLOG_BASE_URL: Joi.string().uri().required().description('PTLOG base URL'),
 
   // Third-party APIs
   CHAT_GPT_API_KEY: Joi.string().required().description('ChatGPT API key'),
   CHAT_GPT_URL: Joi.string().uri().required().description('ChatGPT API URL'),
+
+  CLOUDFLARE_BATCH_URL: Joi.string()
+    .uri()
+    .required()
+    .description('Cloudflare batch URL'),
 });

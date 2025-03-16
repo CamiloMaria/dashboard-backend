@@ -7,7 +7,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, lastValueFrom } from 'rxjs';
 import { EnvService } from '../../config/env/env.service';
 import {
   ChatGptMessage,
@@ -18,7 +18,9 @@ import {
   UserLoginResponse,
   UpdateCatalogInstaleap,
   CreateCatalogInstaleap,
+  UpdateProductInstaleap,
 } from '../interfaces';
+import { CloudflareResponse } from '../interfaces/cloudflare-api.interface';
 
 @Injectable()
 export class ExternalApiService {
@@ -29,6 +31,8 @@ export class ExternalApiService {
 
   private readonly instaleapApiBaseUrl: string;
   private readonly instaleapApiKey: string;
+
+  private readonly cloudflareBatchUrl: string;
 
   private readonly chatGptUrl: string;
   private readonly chatGptApiKey: string;
@@ -47,6 +51,7 @@ export class ExternalApiService {
     this.chatGptApiKey = this.envService.chatGptApiKey;
     this.instaleapApiBaseUrl = this.envService.instaleapApiBaseUrl;
     this.instaleapApiKey = this.envService.instaleapApiKey;
+    this.cloudflareBatchUrl = this.envService.cloudflareBatchUrl;
   }
 
   /**
@@ -290,6 +295,63 @@ export class ExternalApiService {
   }
 
   /**
+   * Update product in Instaleap
+   * @param sku The product SKU to update
+   * @param product The product data to update in Instaleap
+   * @returns null if operation fails or has specific status codes, true if successful
+   */
+  async updateProductInstaleap(
+    sku: string,
+    product: UpdateProductInstaleap,
+  ): Promise<boolean | null> {
+    try {
+      const url = `${this.instaleapApiBaseUrl}/product/products/sku/${sku}`;
+
+      const response = await firstValueFrom(
+        this.httpService.put(url, product, {
+          headers: {
+            'x-api-key': this.instaleapApiKey,
+          },
+        }),
+      );
+
+      return response.status === 200;
+    } catch (error) {
+      // Skip specific status codes
+      if (error.response?.status === 409 || error.response?.status === 404) {
+        return null;
+      } else if (error.response?.status === 400) {
+        // Try to create the product if update fails with 400
+        await this.createProductInstaleap({
+          sku,
+          photosUrl: product.photosUrl,
+          name: product.name,
+          unit: product.unit,
+          specifications: product.specifications,
+          description: product.description,
+          bigItems: product.bigItems,
+          brand: product.brand,
+        });
+        return null;
+      }
+
+      this.logger.error(
+        `Error updating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update product in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
    * Create catalog in Instaleap
    * @param body The catalog data to create in Instaleap
    * @returns The response from Instaleap or null if the operation fails
@@ -356,6 +418,60 @@ export class ExternalApiService {
       );
 
       return null;
+    }
+  }
+
+  /**
+   * Upload an image to Cloudflare Images using batch API
+   * @param file The file to upload
+   * @param batchToken The Cloudflare batch token
+   * @param metadata Optional metadata to attach to the image
+   * @param requireSignedURLs Whether to require signed URLs for the image
+   * @returns The response from Cloudflare Images API
+   */
+  async uploadBatchImageFromFile(
+    file: Express.Multer.File,
+    batchToken: string,
+    metadata?: object,
+    requireSignedURLs: boolean = false,
+  ): Promise<CloudflareResponse> {
+    const formData = new FormData();
+
+    const blob = new Blob([file.buffer], { type: file.mimetype });
+    formData.append('file', blob, file.originalname);
+
+    if (metadata) {
+      formData.append('metadata', JSON.stringify(metadata));
+    }
+
+    formData.append('requireSignedURLs', requireSignedURLs.toString());
+    try {
+      const { data } = await lastValueFrom(
+        this.httpService.post(
+          `${this.cloudflareBatchUrl}/images/v1`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${batchToken}`,
+              'Content-Type': 'multipart/form-data',
+            },
+          },
+        ),
+      );
+
+      if (!data || data.success === false) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to upload image to Cloudflare',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+      return data;
+    } catch (error) {
+      throw error;
     }
   }
 }

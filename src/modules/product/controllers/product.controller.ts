@@ -9,6 +9,8 @@ import {
   HttpStatus,
   Query,
   Request,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +19,7 @@ import {
   ApiParam,
   ApiBody,
   ApiBearerAuth,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -39,6 +42,8 @@ import {
   CreateProductResultDto,
 } from '../dto/create-product.dto';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ProductImageService } from '../services/product-image.service';
 
 @ApiTags('Products')
 @Controller('products')
@@ -46,6 +51,7 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly responseService: ResponseService,
+    private readonly productImageService: ProductImageService,
   ) {}
 
   @Get()
@@ -323,6 +329,95 @@ export class ProductController {
         {
           success: false,
           message: 'Failed to process products',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('upload-images')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Upload product images',
+    description:
+      'Upload one or more product images. Filenames should contain product SKUs.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        images: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Images uploaded successfully',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No images provided or invalid request',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  @UseInterceptors(FilesInterceptor('images'))
+  async uploadImage(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Validate that files exist
+      if (!files || files.length === 0) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'No images provided',
+            error: 'BAD_REQUEST',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      // Pass files to service layer for processing
+      const results = await this.productImageService.uploadImages(
+        files,
+        username,
+      );
+
+      return this.responseService.success(
+        results,
+        'Images uploaded successfully',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to upload images',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

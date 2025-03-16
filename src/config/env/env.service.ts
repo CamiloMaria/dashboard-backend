@@ -151,6 +151,14 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.BASE_CLOUDFLARE_IMG);
   }
 
+  get cloudflareImagePrefix(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_PREFIX);
+  }
+
+  get cloudflareBatchUrl(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_BATCH_URL);
+  }
+
   get ptlogBaseUrl(): string {
     return this.configService.get<string>(ConfigKeys.PTLOG_BASE_URL);
   }
