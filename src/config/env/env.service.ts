@@ -135,12 +135,10 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.SHOPILAMA_API_BASE_URL);
   }
 
-  get eCommerceInstaleap(): string {
-    return this.configService.get<string>(ConfigKeys.E_COMMERCE_INSTALEAP);
-  }
-
-  get cloudflare(): string {
-    return this.configService.get<string>(ConfigKeys.CLOUDFLARE);
+  get eCommerceInstaleapAPiBaseUrl(): string {
+    return this.configService.get<string>(
+      ConfigKeys.ECOMMERCE_INSTALEAP_API_BASE_URL,
+    );
   }
 
   get urlCloudflareSuffix(): string {
@@ -171,8 +169,8 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_DNS);
   }
 
-  get ptlogBaseUrl(): string {
-    return this.configService.get<string>(ConfigKeys.PTLOG_BASE_URL);
+  get ptlogApiBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.PTLOG_API_BASE_URL);
   }
 
   // Third-party APIs

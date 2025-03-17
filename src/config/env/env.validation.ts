@@ -101,7 +101,7 @@ export const envValidationSchema = Joi.object({
     .uri()
     .required()
     .description('Shopilama API base URL'),
-  E_COMMERCE_INSTALEAP: Joi.string()
+  ECOMMERCE_INSTALEAP: Joi.string()
     .uri()
     .required()
     .description('E-Commerce Instaleap URL'),
