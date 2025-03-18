@@ -47,7 +47,7 @@ export class ProductSetController {
   @ApiResponse({
     status: 200,
     description: 'Product sets retrieved successfully',
-    type: () => PaginatedResponse<ProductSetResponseDto>,
+    type: () => PaginatedResponse<ProductSetResponseDto[]>,
   })
   @ApiResponse({
     status: 404,
@@ -61,14 +61,18 @@ export class ProductSetController {
   })
   async findAll(@Query() filterDto: ProductSetFilterDto) {
     try {
-      const { items, meta } =
+      const { items, pagination } =
         await this.productSetService.findAllPaginated(filterDto);
       return this.responseService.paginate(
         items,
-        meta.totalItems,
-        meta.currentPage,
-        meta.itemsPerPage,
+        pagination.totalItems,
+        pagination.currentPage,
+        pagination.itemsPerPage,
         'Product sets retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -110,6 +114,10 @@ export class ProductSetController {
       return this.responseService.success(
         productSet,
         'Product set retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -156,6 +164,10 @@ export class ProductSetController {
       return this.responseService.success(
         productSets,
         'Product sets retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -238,7 +250,13 @@ export class ProductSetController {
         result.success
           ? 'Product set created successfully'
           : 'Failed to create product set',
-        result.success ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST,
+        {
+          statusCode: result.success
+            ? HttpStatus.CREATED
+            : HttpStatus.BAD_REQUEST,
+          timestamp: new Date().toISOString(),
+          path: req.url,
+        },
       );
     } catch (error) {
       throw new HttpException(

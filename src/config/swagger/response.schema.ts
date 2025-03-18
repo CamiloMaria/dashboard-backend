@@ -48,8 +48,23 @@ export class PaginationMeta {
  * Paginated response class for API responses with pagination
  */
 export class PaginatedResponse<T> extends BaseResponse<T[]> {
-  @ApiProperty({ type: PaginationMeta })
-  meta: PaginationMeta;
+  @ApiProperty({
+    type: Object,
+    description:
+      'Metadata for the response, can include pagination and other information',
+    example: {
+      pagination: {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalItems: 100,
+        totalPages: 10,
+      },
+    },
+  })
+  meta: {
+    pagination?: PaginationMeta;
+    [key: string]: any;
+  };
 }
 
 /**

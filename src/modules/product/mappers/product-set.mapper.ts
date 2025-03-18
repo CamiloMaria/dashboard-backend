@@ -12,7 +12,7 @@ export class ProductSetMapper {
    * @param set The product set entity with loaded relations
    * @returns The mapped DTO
    */
-  async mapToDto(set: WebSetProducts): Promise<ProductSetResponseDto> {
+  mapToDto(set: WebSetProducts): ProductSetResponseDto {
     const dto = new ProductSetResponseDto();
 
     // Map basic properties

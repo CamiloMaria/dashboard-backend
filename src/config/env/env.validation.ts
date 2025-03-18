@@ -101,11 +101,10 @@ export const envValidationSchema = Joi.object({
     .uri()
     .required()
     .description('Shopilama API base URL'),
-  ECOMMERCE_INSTALEAP: Joi.string()
+  ECOMMERCE_INSTALEAP_API_BASE_URL: Joi.string()
     .uri()
     .required()
     .description('E-Commerce Instaleap URL'),
-  CLOUDFLARE: Joi.string().uri().required().description('Cloudflare URL'),
   BASE_CLOUDFLARE_IMG: Joi.string()
     .uri()
     .required()
@@ -115,7 +114,10 @@ export const envValidationSchema = Joi.object({
     .required()
     .description('Cloudflare image prefix'),
 
-  PTLOG_BASE_URL: Joi.string().uri().required().description('PTLOG base URL'),
+  PTLOG_API_BASE_URL: Joi.string()
+    .uri()
+    .required()
+    .description('PTLOG base URL'),
 
   // Third-party APIs
   CHAT_GPT_API_KEY: Joi.string().required().description('ChatGPT API key'),

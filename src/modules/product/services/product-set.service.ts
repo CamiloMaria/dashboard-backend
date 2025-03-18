@@ -52,7 +52,7 @@ export class ProductSetService {
    */
   async findAllPaginated(
     filterDto: ProductSetFilterDto,
-  ): Promise<{ items: ProductSetResponseDto[]; meta: PaginationMeta }> {
+  ): Promise<{ items: ProductSetResponseDto[]; pagination: PaginationMeta }> {
     try {
       const {
         page = 1,
@@ -136,14 +136,14 @@ export class ProductSetService {
       );
 
       // Create pagination metadata
-      const meta: PaginationMeta = {
+      const pagination: PaginationMeta = {
         currentPage: validPage,
         itemsPerPage: validLimit,
         totalItems,
         totalPages,
       };
 
-      return { items, meta };
+      return { items, pagination };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -238,10 +238,8 @@ export class ProductSetService {
         );
       }
 
-      // Map database entities to response DTOs
-      return Promise.all(
-        productSets.map((set) => this.productSetMapper.mapToDto(set)),
-      );
+      // Map to response DTOs
+      return productSets.map((set) => this.productSetMapper.mapToDto(set));
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

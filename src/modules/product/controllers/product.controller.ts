@@ -89,6 +89,10 @@ export class ProductController {
         meta.currentPage,
         meta.itemsPerPage,
         'Products retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -134,6 +138,10 @@ export class ProductController {
       return this.responseService.success(
         product,
         'Product retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -184,6 +192,10 @@ export class ProductController {
       return this.responseService.success(
         { description },
         'Product description generated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -235,6 +247,10 @@ export class ProductController {
       return this.responseService.success(
         { keywords },
         'Product keywords generated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -318,7 +334,10 @@ export class ProductController {
         hasSuccesses
           ? 'Products processed successfully'
           : 'No products were created',
-        hasSuccesses ? HttpStatus.CREATED : HttpStatus.OK,
+        {
+          statusCode: hasSuccesses ? HttpStatus.CREATED : HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       throw new HttpException(
@@ -403,7 +422,10 @@ export class ProductController {
       return this.responseService.success(
         results,
         'Images uploaded successfully',
-        HttpStatus.CREATED,
+        {
+          statusCode: HttpStatus.CREATED,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
