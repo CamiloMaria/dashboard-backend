@@ -444,9 +444,7 @@ export class ProductSetService {
         photosUrl:
           productImages && productImages.length > 0
             ? productImages
-            : [
-                `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
-              ],
+            : [`${this.envService.baseCloudflareImg}/base`],
         ean: [productSet.set_sku],
         description: existingProducts[0].description_instaleap,
         bigItems: productsGroup.bigItems,

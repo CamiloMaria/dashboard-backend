@@ -141,10 +141,6 @@ export class EnvService {
     );
   }
 
-  get urlCloudflareSuffix(): string {
-    return this.configService.get<string>(ConfigKeys.URL_CLOUDFLARE_SUFFIX);
-  }
-
   get baseCloudflareImg(): string {
     return this.configService.get<string>(ConfigKeys.BASE_CLOUDFLARE_IMG);
   }

@@ -38,6 +38,30 @@ export class ProductImageService {
       failed: 0,
     };
 
+    // Batch token management
+    const BATCH_TOKEN_LIMIT = 199; // Keep under 200 to be safe
+    let currentBatchToken = '';
+    let batchTokenUsageCount = 0;
+
+    /**
+     * Get a batch token, either reusing the current one or fetching a new one if limit reached
+     */
+    const getBatchToken = async (): Promise<string> => {
+      // Get a new token if we don't have one or if we've hit the limit
+      if (!currentBatchToken || batchTokenUsageCount >= BATCH_TOKEN_LIMIT) {
+        currentBatchToken = await this.externalApiService.getBatchToken();
+        batchTokenUsageCount = 0;
+        this.logger.log(
+          `Obtained new batch token #${Math.ceil(batchStats.processed / BATCH_TOKEN_LIMIT) + 1}: ${currentBatchToken.slice(0, 10)}...`,
+        );
+      }
+
+      // Increment the usage counter
+      batchTokenUsageCount++;
+
+      return currentBatchToken;
+    };
+
     try {
       // Extract SKUs from filenames using regex
       const fileData = files.map((file) => {
@@ -73,6 +97,12 @@ export class ProductImageService {
         `Starting batch upload of ${validFiles.length} images for ${uniqueSkus.length} unique products`,
       );
 
+      // Initialize the first batch token
+      currentBatchToken = await this.externalApiService.getBatchToken();
+      this.logger.log(
+        `Obtained initial batch token: ${currentBatchToken.slice(0, 10)}...`,
+      );
+
       // Find products by SKUs
       const products = await this.webProductRepository.find({
         where: { sku: In(uniqueSkus) },
@@ -95,8 +125,6 @@ export class ProductImageService {
       });
 
       // Process each product's files
-      const uploadPromises = [];
-
       for (const [sku, productFiles] of filesByProduct.entries()) {
         const product = productMap.get(sku);
 
@@ -115,19 +143,15 @@ export class ProductImageService {
         }
 
         // Process files for this product
-        uploadPromises.push(
-          this.processProductImages(
-            product,
-            productFiles,
-            username,
-            results,
-            batchStats,
-          ),
+        await this.processProductImages(
+          product,
+          productFiles,
+          username,
+          results,
+          batchStats,
+          getBatchToken,
         );
       }
-
-      // Wait for all uploads to complete
-      await Promise.all(uploadPromises);
 
       // Log batch processing completion
       this.logger.log(
@@ -151,6 +175,7 @@ export class ProductImageService {
    * @param username Username of the user uploading the images
    * @param results Array to collect results
    * @param batchStats Object to track batch statistics
+   * @param getBatchToken Function to get a batch token, respecting limits
    */
   private async processProductImages(
     product: WebProduct,
@@ -163,6 +188,7 @@ export class ProductImageService {
       successful: number;
       failed: number;
     },
+    getBatchToken: () => Promise<string>,
   ): Promise<void> {
     const existingImages = product.images || [];
     let nextPosition =
@@ -170,9 +196,12 @@ export class ProductImageService {
         ? Math.max(...existingImages.map((img) => img.position || 0)) + 1
         : 1;
 
-    // Process each file for this product
-    const uploadPromises = files.map(async (file) => {
+    // Process each file for this product in sequence to respect token limits
+    for (const file of files) {
       try {
+        // Get a batch token for this upload (may reuse existing or get a new one if limit reached)
+        const batchToken = await getBatchToken();
+
         // Create new image entity
         const newImage = new WebProductImage();
         newImage.product_id = product.num;
@@ -184,10 +213,14 @@ export class ProductImageService {
         newImage.status = 1;
 
         const uploadResult =
-          await this.externalApiService.uploadBatchImageFromFile(file, {
-            productId: product.num,
-            sku: product.sku,
-          });
+          await this.externalApiService.uploadBatchImageFromFile(
+            file,
+            batchToken,
+            {
+              productId: product.num,
+              sku: product.sku,
+            },
+          );
 
         if (!uploadResult.success) {
           throw new HttpException(
@@ -207,8 +240,7 @@ export class ProductImageService {
         newImage.src_cloudflare = srcCloudflare;
 
         // Save image to database
-        // const savedImage = await this.webProductImageRepository.save(newImage);
-        const savedImage = newImage;
+        const savedImage = await this.webProductImageRepository.save(newImage);
 
         results.push({
           filename: file.originalname,
@@ -217,13 +249,11 @@ export class ProductImageService {
           message: 'Image uploaded successfully',
           imageId: savedImage.id,
           position: newImage.position,
-          url: `${newImage.src_cloudflare}/${this.envService.urlCloudflareSuffix}`,
+          url: `${newImage.src_cloudflare}/base`,
         });
 
         batchStats.processed++;
         batchStats.successful++;
-
-        return { success: true, image: newImage };
       } catch (error) {
         this.logger.error(
           `Error uploading image for SKU ${product.sku}: ${error.message}`,
@@ -239,34 +269,30 @@ export class ProductImageService {
 
         batchStats.processed++;
         batchStats.failed++;
-
-        return { success: false };
       }
-    });
+    }
 
-    // Wait for all uploads to complete
-    const uploadResults = await Promise.all(uploadPromises);
-
-    // Update product in Instaleap if we uploaded at least one image and there were no existing images
-    const successfulUploads = uploadResults.filter((result) => result.success);
-
-    if (successfulUploads.length > 0 && existingImages.length === 0) {
+    // Update product in Instaleap if we uploaded at least one image
+    if (batchStats.successful > 0) {
       try {
-        // Get the first successful image to use for Instaleap
-        const firstImage = successfulUploads[0].image;
-
-        await this.externalApiService.updateProductInstaleap(product.sku, {
-          name: product.title,
-          photosUrl: [
-            `${firstImage.src_cloudflare}/${this.envService.urlCloudflareSuffix}`,
-          ],
-          description: product.description_instaleap,
-          bigItems: 0,
+        // Find all images for the product
+        const images = await this.webProductImageRepository.find({
+          where: {
+            product_id: product.num,
+            status: 1,
+          },
+          order: { position: 'ASC' },
         });
 
-        this.logger.log(
-          `Product ${product.sku} updated with new image in Instaleap by ${username}`,
-        );
+        if (images.length > 0) {
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: images.map((img) => `${img.src_cloudflare}/base}`),
+          });
+
+          this.logger.log(
+            `Product ${product.sku} updated with new image in Instaleap by ${username}`,
+          );
+        }
       } catch (instaleapError) {
         this.logger.error(
           `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,

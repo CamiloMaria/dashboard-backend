@@ -385,9 +385,7 @@ export class ProductService {
         try {
           await this.externalApiService.createProductInstaleap({
             name: newProduct.title,
-            photosUrl: [
-              `${this.envService.baseCloudflareImg}/${this.envService.urlCloudflareSuffix}`,
-            ],
+            photosUrl: [`${this.envService.baseCloudflareImg}/base`],
             sku: newProduct.sku,
             unit: newProduct.unmanejo || 'UND',
             ean: [newProduct.sku],

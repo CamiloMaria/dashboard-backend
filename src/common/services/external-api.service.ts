@@ -430,18 +430,20 @@ export class ExternalApiService {
   /**
    * Upload an image to Cloudflare Images using batch API
    * @param file The file to upload
+   * @param batchToken Optional batch token for making multiple uploads with the same token
    * @param metadata Optional metadata to attach to the image
    * @param requireSignedURLs Whether to require signed URLs for the image
    * @returns The response from Cloudflare Images API
    */
   async uploadBatchImageFromFile(
     file: Express.Multer.File,
+    batchToken?: string,
     metadata?: object,
     requireSignedURLs: boolean = false,
   ): Promise<CloudflareResponse> {
     try {
-      // Get batch token first
-      const batchToken = await this.getBatchToken();
+      // Get batch token if not provided
+      const token = batchToken || (await this.getBatchToken());
 
       const formData = new FormData();
 
@@ -460,7 +462,7 @@ export class ExternalApiService {
           formData,
           {
             headers: {
-              Authorization: `Bearer ${batchToken}`,
+              Authorization: `Bearer ${token}`,
               'Content-Type': 'multipart/form-data',
             },
           },
