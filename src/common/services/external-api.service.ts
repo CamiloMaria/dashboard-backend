@@ -430,28 +430,30 @@ export class ExternalApiService {
   /**
    * Upload an image to Cloudflare Images using batch API
    * @param file The file to upload
-   * @param batchToken The Cloudflare batch token
    * @param metadata Optional metadata to attach to the image
    * @param requireSignedURLs Whether to require signed URLs for the image
    * @returns The response from Cloudflare Images API
    */
   async uploadBatchImageFromFile(
     file: Express.Multer.File,
-    batchToken: string,
     metadata?: object,
     requireSignedURLs: boolean = false,
   ): Promise<CloudflareResponse> {
-    const formData = new FormData();
-
-    const blob = new Blob([file.buffer], { type: file.mimetype });
-    formData.append('file', blob, file.originalname);
-
-    if (metadata) {
-      formData.append('metadata', JSON.stringify(metadata));
-    }
-
-    formData.append('requireSignedURLs', requireSignedURLs.toString());
     try {
+      // Get batch token first
+      const batchToken = await this.getBatchToken();
+
+      const formData = new FormData();
+
+      const blob = new Blob([file.buffer], { type: file.mimetype });
+      formData.append('file', blob, file.originalname);
+
+      if (metadata) {
+        formData.append('metadata', JSON.stringify(metadata));
+      }
+
+      formData.append('requireSignedURLs', requireSignedURLs.toString());
+
       const { data } = await lastValueFrom(
         this.httpService.post(
           `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1`,
@@ -477,10 +479,66 @@ export class ExternalApiService {
       }
       return data;
     } catch (error) {
-      throw error;
+      this.logger.error(
+        `Error uploading image to Cloudflare: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to upload image to Cloudflare',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
+  /**
+   * Gets a batch token from Cloudflare Images API
+   * @returns A batch token for uploading multiple images
+   */
+  async getBatchToken(): Promise<string> {
+    try {
+      const { data } = await lastValueFrom(
+        this.httpService.get(
+          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1/batch_token`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.cloudflareApiToken}`,
+            },
+          },
+        ),
+      );
 
+      if (!data.success) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to obtain batch token from Cloudflare',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      return data.result.token;
+    } catch (error) {
+      this.logger.error(
+        `Error obtaining batch token from Cloudflare: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to obtain batch token from Cloudflare',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
   /**
    * Deletes an image from Cloudflare Images
    * @param imageId The ID of the image to delete
@@ -512,7 +570,19 @@ export class ExternalApiService {
 
       return data;
     } catch (error) {
-      throw error;
+      this.logger.error(
+        `Error deleting image from Cloudflare: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to delete image from Cloudflare',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 }

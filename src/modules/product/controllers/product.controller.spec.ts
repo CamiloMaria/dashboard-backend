@@ -46,8 +46,6 @@ const mockPaginationMeta: PaginationMeta = {
   itemsPerPage: 10,
   totalItems: 20,
   totalPages: 2,
-  hasNextPage: true,
-  hasPreviousPage: false,
 };
 
 // Mock services

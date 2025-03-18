@@ -46,6 +46,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ProductImageService } from '../services/product-image.service';
 
 @ApiTags('Products')
+@ApiBearerAuth()
 @Controller('products')
 export class ProductController {
   constructor(
@@ -55,7 +56,6 @@ export class ProductController {
   ) {}
 
   @Get()
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all products with pagination, search, and sorting',
   })
@@ -106,7 +106,6 @@ export class ProductController {
   }
 
   @Get(':id')
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
   @ApiResponse({
@@ -152,7 +151,6 @@ export class ProductController {
   }
 
   @Post('generate-description')
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Generate a product description using ChatGPT',
   })
@@ -203,7 +201,6 @@ export class ProductController {
   }
 
   @Post('generate-keywords')
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Generate SEO keywords for a product using ChatGPT',
   })
@@ -255,7 +252,6 @@ export class ProductController {
   }
 
   @Post()
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create products from a list of SKUs',
     description:
@@ -337,7 +333,6 @@ export class ProductController {
   }
 
   @Post('upload-images')
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Upload product images',
     description:

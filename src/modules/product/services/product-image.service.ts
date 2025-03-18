@@ -181,16 +181,13 @@ export class ProductImageService {
         newImage.alt = product.sku;
         newImage.width = 1800;
         newImage.height = 1800;
-        newImage.status = 1; // Active status
+        newImage.status = 1;
 
-        // Upload image to Cloudflare
-        const cloudflareToken = this.envService.cloudflare;
         const uploadResult =
-          await this.externalApiService.uploadBatchImageFromFile(
-            file,
-            cloudflareToken,
-            { productId: product.num, sku: product.sku },
-          );
+          await this.externalApiService.uploadBatchImageFromFile(file, {
+            productId: product.num,
+            sku: product.sku,
+          });
 
         if (!uploadResult.success) {
           throw new HttpException(
@@ -210,7 +207,8 @@ export class ProductImageService {
         newImage.src_cloudflare = srcCloudflare;
 
         // Save image to database
-        const savedImage = await this.webProductImageRepository.save(newImage);
+        // const savedImage = await this.webProductImageRepository.save(newImage);
+        const savedImage = newImage;
 
         results.push({
           filename: file.originalname,

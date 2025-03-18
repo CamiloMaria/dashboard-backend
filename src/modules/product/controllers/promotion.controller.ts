@@ -7,7 +7,13 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { PromotionService } from '../services/promotion.service';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
 import { PromotionFilterDto } from '../dto/promotion-filter.dto';
@@ -18,6 +24,7 @@ import {
 import { ResponseService } from '../../../common/services/response.service';
 
 @ApiTags('Promotions')
+@ApiBearerAuth()
 @Controller('promotions')
 export class PromotionController {
   constructor(
