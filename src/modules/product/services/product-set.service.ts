@@ -312,17 +312,17 @@ export class ProductSetService {
         (image) => image.src_cloudflare,
       );
 
-      // if (
-      //   productsWithImages.length === 0 ||
-      //   productsWithCloudflareImages.length === 0
-      // ) {
-      //   return {
-      //     success: false,
-      //     message: 'None of the products have images',
-      //     status: ProductSetCreationStatus.NO_IMAGES,
-      //     failedProducts: skus,
-      //   };
-      // }
+      if (
+        productsWithImages.length === 0 ||
+        productsWithCloudflareImages.length === 0
+      ) {
+        return {
+          success: false,
+          message: 'None of the products have images',
+          status: ProductSetCreationStatus.NO_IMAGES,
+          failedProducts: skus,
+        };
+      }
 
       // Check if all products are from the same group
       const groups = existingProducts.map((product) => product.grupo);
@@ -428,7 +428,7 @@ export class ProductSetService {
       }
 
       const productSet = await this.productSetRepository.findOneBy({
-        title: 'A/A TECNOMASTER INT24/EXT24 12,000 BTU',
+        title,
       });
 
       // Get all images from the first product that has images
