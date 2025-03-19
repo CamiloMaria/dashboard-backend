@@ -239,10 +239,7 @@ export class ProductController {
   })
   async generateKeywords(@Body() generateDto: GenerateKeywordsDto) {
     try {
-      const keywords = await this.productService.generateKeywords(
-        generateDto.productTitle,
-        generateDto.productCategory,
-      );
+      const keywords = await this.productService.generateKeywords(generateDto);
 
       return this.responseService.success(
         { keywords },

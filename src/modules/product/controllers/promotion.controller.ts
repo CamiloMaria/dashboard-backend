@@ -61,6 +61,10 @@ export class PromotionController {
         meta.currentPage,
         meta.itemsPerPage,
         'Promotions retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -101,6 +105,10 @@ export class PromotionController {
       return this.responseService.success(
         promotion,
         'Promotion retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       if (error instanceof HttpException) {

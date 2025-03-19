@@ -19,7 +19,7 @@ import {
 } from '../dto/create-product.dto';
 import { EnvService, LoggerService } from 'src/config';
 import { WebProductGroup } from '../entities/shop/web-product-group.entity';
-
+import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
@@ -264,11 +264,10 @@ export class ProductService {
    * @param productCategory The category of the product
    * @returns Comma-separated list of SEO keywords
    */
-  async generateKeywords(
-    productTitle: string,
-    productCategory: string,
-  ): Promise<string> {
+  async generateKeywords(generateDto: GenerateKeywordsDto): Promise<string[]> {
     try {
+      const { sku, productTitle, productCategory } = generateDto;
+
       const prompt = `Hola, estamos creando un e-commerce en 
       República Dominicana y necesitamos crear un listado de keywords 
       para cada producto de nuestro catalogo que contenga los regionalismos 
@@ -283,7 +282,28 @@ export class ProductService {
       ]);
 
       // Just trim any extra whitespace
-      return content.trim();
+      const keywords = content.split(',').map((keyword) => keyword.trim());
+
+      // Get product matnr from sku
+      const productMatnr = await this.webProductRepository.findOne({
+        select: {
+          matnr: true,
+        },
+        where: { sku },
+      });
+
+      if (!productMatnr) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Product not found',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Add matnr to keywords
+      return [productMatnr.matnr, ...keywords];
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
