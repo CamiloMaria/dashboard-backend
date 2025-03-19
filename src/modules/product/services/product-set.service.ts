@@ -57,7 +57,8 @@ export class ProductSetService {
       const {
         page = 1,
         limit = 10,
-        set_sku,
+        setSku,
+        productSku,
         title,
         area,
         sortBy = SortField.UPDATE_AT,
@@ -75,8 +76,14 @@ export class ProductSetService {
       const whereConditions: FindOptionsWhere<WebSetProducts> = {};
 
       // Add search filters if provided
-      if (set_sku) {
-        whereConditions.set_sku = set_sku;
+      if (setSku) {
+        whereConditions.set_sku = setSku;
+      }
+
+      if (productSku) {
+        whereConditions.relations = {
+          product: { sku: productSku },
+        };
       }
 
       if (title) {
@@ -165,10 +172,10 @@ export class ProductSetService {
    * @param sku The product set SKU
    * @returns Product set with related product data
    */
-  async findBySku(sku: string): Promise<ProductSetResponseDto> {
+  async findBySku(setSku: string): Promise<ProductSetResponseDto> {
     try {
       const productSet = await this.productSetRepository.findOne({
-        where: { set_sku: sku },
+        where: { set_sku: setSku },
         select: {
           set_sku: true,
           title: true,
@@ -185,7 +192,7 @@ export class ProductSetService {
         throw new HttpException(
           {
             success: false,
-            message: `Product set with SKU ${sku} not found`,
+            message: `Product set with SKU ${setSku} not found`,
             error: 'NOT_FOUND',
           },
           HttpStatus.NOT_FOUND,
@@ -200,7 +207,7 @@ export class ProductSetService {
       throw new HttpException(
         {
           success: false,
-          message: `Failed to retrieve product set with SKU ${sku}`,
+          message: `Failed to retrieve product set with SKU ${setSku}`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

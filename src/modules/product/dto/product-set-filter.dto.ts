@@ -44,7 +44,15 @@ export class ProductSetFilterDto {
   })
   @IsOptional()
   @IsString()
-  set_sku?: string;
+  setSku?: string;
+
+  @ApiProperty({
+    description: 'Product SKU',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  productSku?: string;
 
   @ApiProperty({
     description: 'Set title',

@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Param,
   Query,
   HttpException,
   HttpStatus,
@@ -13,7 +12,6 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiParam,
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
@@ -31,7 +29,7 @@ import {
 } from '../dto/create-product-set.dto';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 
-@ApiTags('Product Sets')
+@ApiTags('Products Sets')
 @Controller('product-sets')
 export class ProductSetController {
   constructor(
@@ -68,101 +66,6 @@ export class ProductSetController {
         pagination.totalItems,
         pagination.currentPage,
         pagination.itemsPerPage,
-        'Product sets retrieved successfully',
-        {
-          statusCode: HttpStatus.OK,
-          timestamp: new Date().toISOString(),
-        },
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to retrieve product sets',
-          error: error.message,
-        },
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Get(':sku')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get a product set by SKU' })
-  @ApiParam({ name: 'sku', description: 'Product Set SKU', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product set retrieved successfully',
-    type: () => BaseResponse<ProductSetResponseDto>,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Product set not found',
-    type: () => BaseResponse<null>,
-  })
-  @ApiResponse({
-    status: 500,
-    description: 'Internal server error',
-    type: () => BaseResponse<null>,
-  })
-  async findOne(@Param('sku') sku: string) {
-    try {
-      const productSet = await this.productSetService.findBySku(sku);
-      return this.responseService.success(
-        productSet,
-        'Product set retrieved successfully',
-        {
-          statusCode: HttpStatus.OK,
-          timestamp: new Date().toISOString(),
-        },
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to retrieve product set',
-          error: error.message,
-        },
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Get('by-product/:sku')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get product sets containing a specific product' })
-  @ApiParam({
-    name: 'sku',
-    description: 'Product SKU to search for in sets',
-    type: 'string',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Product sets retrieved successfully',
-    type: () => BaseResponse<ProductSetResponseDto[]>,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'No product sets found with the given product',
-    type: () => BaseResponse<null>,
-  })
-  @ApiResponse({
-    status: 500,
-    description: 'Internal server error',
-    type: () => BaseResponse<null>,
-  })
-  async findByProductSku(@Param('sku') productSku: string) {
-    try {
-      const productSets =
-        await this.productSetService.findByProductSku(productSku);
-      return this.responseService.success(
-        productSets,
         'Product sets retrieved successfully',
         {
           statusCode: HttpStatus.OK,

@@ -23,9 +23,9 @@ import {
 } from '../../../config/swagger/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
 
-@ApiTags('Promotions')
+@ApiTags('Products Promotions')
 @ApiBearerAuth()
-@Controller('promotions')
+@Controller('product-promotions')
 export class PromotionController {
   constructor(
     private readonly promotionService: PromotionService,
