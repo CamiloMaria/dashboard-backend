@@ -17,7 +17,6 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
 
 import { AuthService } from '../services/auth.service';
 import { LoginDto } from '../dto/login.dto';
@@ -38,6 +37,13 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly responseService: ResponseService,
   ) {}
+
+  @Get('health')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  health() {
+    return;
+  }
 
   /**
    * A protected endpoint that requires authentication and specific page permissions
@@ -102,7 +108,6 @@ export class AuthController {
   @Post('sign-in')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(ThrottlerGuard)
   @ApiOperation({
     summary: 'User authentication',
     description:
@@ -190,46 +195,5 @@ export class AuthController {
   ): Promise<BaseResponse<UserLoginResponseDto>> {
     const result = await this.authService.login(loginDto);
     return this.responseService.success(result, 'Login successful');
-  }
-
-  @ApiOperation({ summary: 'Check health of the authentication service' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Authentication service is healthy',
-    type: BaseResponse,
-    schema: {
-      example: {
-        success: true,
-        message: 'Authentication service is healthy',
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.INTERNAL_SERVER_ERROR,
-    description: 'Internal server error',
-    type: BaseResponse,
-    schema: {
-      example: {
-        success: false,
-        message:
-          'An error occurred while checking the health of the authentication service. Please try again later.',
-        error: 'Internal Server Error',
-      },
-    },
-  })
-  @Get('health')
-  @Public()
-  async checkHealth(): Promise<BaseResponse<any>> {
-    try {
-      // Perform any necessary health checks here
-      return {
-        success: true,
-        message: 'Authentication service is healthy',
-      };
-    } catch {
-      throw new InternalServerErrorException(
-        'An error occurred while checking the health of the authentication service. Please try again later.',
-      );
-    }
   }
 }

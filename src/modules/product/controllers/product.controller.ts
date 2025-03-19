@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Query,
   Request,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -40,6 +41,7 @@ import {
 } from '../dto/create-product.dto';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { ProductImageService } from '../services/product-image.service';
+import { Public } from 'src/common/decorators';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -50,6 +52,13 @@ export class ProductController {
     private readonly responseService: ResponseService,
     private readonly productImageService: ProductImageService,
   ) {}
+
+  @Get('health')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  health() {
+    return;
+  }
 
   @Get()
   @ApiOperation({

@@ -3,7 +3,6 @@ import {
   HealthCheck,
   HealthCheckService,
   HealthCheckResult,
-  HealthIndicatorResult,
   TypeOrmHealthIndicator,
   HttpHealthIndicator,
 } from '@nestjs/terminus';
@@ -12,12 +11,14 @@ import { DataSource } from 'typeorm';
 import { EnvService } from '../../config/env/env.service';
 import { Public } from '../../common/decorators';
 import { DatabaseConnection } from '../../config/database/constants';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
  * Controller for health check endpoints
  */
 @Controller('health')
 @Public()
+@ApiTags('Health')
 export class HealthController {
   constructor(
     private health: HealthCheckService,
@@ -38,57 +39,59 @@ export class HealthController {
    */
   @Get()
   @HealthCheck()
+  @ApiOperation({
+    summary: 'Check system health',
+    description:
+      'Performs health checks on all services and database connections',
+  })
   check(): Promise<HealthCheckResult> {
-    return this.health.check([
-      // Here you can add more specific health checks if needed
-      // For example, database connections, external services, etc.
-      async (): Promise<HealthIndicatorResult> => {
-        const healthCheck: HealthIndicatorResult = {
-          application: {
-            status: 'up',
-            message: 'Application is running',
-          },
-        };
-        return healthCheck;
-      },
-    ]);
-  }
-
-  /**
-   * Health check endpoint for the databases
-   * @returns Health check result for the databases
-   */
-  @Get('databases')
-  @HealthCheck()
-  checkDatabases() {
-    return this.health.check([
-      () => this.db.pingCheck('shop', { connection: this.shopConnection }),
-      () =>
-        this.db.pingCheck('intranet', {
-          connection: this.intranetConnection,
-        }),
-      () =>
-        this.db.pingCheck('oracle', {
-          connection: this.oracleConnection,
-        }),
-    ]);
-  }
-
-  /**
-   * Health check endpoint for the auth service
-   * @returns Health check result for the auth service
-   */
-  @Get('auth')
-  @HealthCheck()
-  checkAuth() {
-    // Build URL from environment variables or use defaults
     const host = 'localhost';
     const port = this.envService.port;
     const prefix = this.envService.globalPrefix;
     const baseUrl = `http://${host}:${port}/${prefix}`;
 
     return this.health.check([
-      () => this.http.pingCheck('auth', `${baseUrl}/auth/health`),
+      () =>
+        this.http.responseCheck(
+          'auth',
+          `${baseUrl}/auth/health`,
+          (res) => res.status === 204,
+        ),
+      () =>
+        this.http.responseCheck(
+          'products',
+          `${baseUrl}/products/health`,
+          (res) => res.status === 204,
+        ),
+      () =>
+        this.http.responseCheck(
+          'product-sets',
+          `${baseUrl}/product-sets/health`,
+          (res) => res.status === 204,
+        ),
+      () =>
+        this.http.responseCheck(
+          'product-promotions',
+          `${baseUrl}/product-promotions/health`,
+          (res) => res.status === 204,
+        ),
+      () =>
+        this.http.responseCheck(
+          'product-images',
+          `${baseUrl}/product-images/health`,
+          (res) => res.status === 204,
+        ),
+
+      () =>
+        this.db.pingCheck('shop-database', { connection: this.shopConnection }),
+      () =>
+        this.db.pingCheck('intranet-database', {
+          connection: this.intranetConnection,
+        }),
+      () =>
+        this.db.pingCheck('oracle-database', {
+          connection: this.oracleConnection,
+        }),
     ]);
   }
 }

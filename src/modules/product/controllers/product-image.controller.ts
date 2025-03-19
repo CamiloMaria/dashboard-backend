@@ -14,12 +14,15 @@ import {
   UploadedFiles,
   UseInterceptors,
   Request,
+  HttpCode,
+  Get,
 } from '@nestjs/common';
 import { ProductImageService } from '../services/product-image.service';
 import { BaseResponse } from 'src/config/swagger/response.schema';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ResponseService } from 'src/common/services/response.service';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
+import { Public } from 'src/common/decorators';
 
 @ApiTags('Products Images')
 @ApiBearerAuth()
@@ -29,6 +32,13 @@ export class ProductImageController {
     private readonly productImageService: ProductImageService,
     private readonly responseService: ResponseService,
   ) {}
+
+  @Get('health')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  health() {
+    return;
+  }
 
   @Post()
   @ApiOperation({

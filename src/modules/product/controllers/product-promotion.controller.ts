@@ -6,6 +6,7 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,7 @@ import {
   PaginatedResponse,
 } from '../../../config/swagger/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
+import { Public } from 'src/common/decorators';
 
 @ApiTags('Products Promotions')
 @ApiBearerAuth()
@@ -31,6 +33,13 @@ export class ProductPromotionController {
     private readonly promotionService: PromotionService,
     private readonly responseService: ResponseService,
   ) {}
+
+  @Get('health')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  health() {
+    return;
+  }
 
   @Get()
   @ApiOperation({

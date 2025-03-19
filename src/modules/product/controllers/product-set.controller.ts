@@ -7,6 +7,7 @@ import {
   Post,
   Body,
   Request,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,6 +29,7 @@ import {
   CreateProductSetResultDto,
 } from '../dto/create-product-set.dto';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
+import { Public } from 'src/common/decorators';
 
 @ApiTags('Products Sets')
 @Controller('product-sets')
@@ -36,6 +38,13 @@ export class ProductSetController {
     private readonly productSetService: ProductSetService,
     private readonly responseService: ResponseService,
   ) {}
+
+  @Get('health')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  health() {
+    return;
+  }
 
   @Get()
   @ApiBearerAuth()
