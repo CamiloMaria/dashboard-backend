@@ -26,7 +26,7 @@ import { ResponseService } from '../../../common/services/response.service';
 @ApiTags('Products Promotions')
 @ApiBearerAuth()
 @Controller('product-promotions')
-export class PromotionController {
+export class ProductPromotionController {
   constructor(
     private readonly promotionService: PromotionService,
     private readonly responseService: ResponseService,

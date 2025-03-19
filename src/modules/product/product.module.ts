@@ -16,13 +16,14 @@ import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
 import { ProductMapper } from './mappers/product.mapper';
 import { ResponseService } from '../../common/services/response.service';
-import { PromotionController } from './controllers/promotion.controller';
+import { ProductPromotionController } from './controllers/product-promotion.controller';
 import { PromotionService } from './services/promotion.service';
 import { PromotionMapper } from './mappers/promotion.mapper';
 import { ProductSetController } from './controllers/product-set.controller';
 import { ProductSetService } from './services/product-set.service';
 import { ProductSetMapper } from './mappers/product-set.mapper';
 import { ProductImageService } from './services/product-image.service';
+import { ProductImageController } from './controllers/product-image.controller';
 
 @Module({
   imports: [
@@ -41,7 +42,12 @@ import { ProductImageService } from './services/product-image.service';
       DatabaseConnection.SHOP,
     ),
   ],
-  controllers: [ProductController, PromotionController, ProductSetController],
+  controllers: [
+    ProductController,
+    ProductPromotionController,
+    ProductSetController,
+    ProductImageController,
+  ],
   providers: [
     ProductService,
     ProductMapper,

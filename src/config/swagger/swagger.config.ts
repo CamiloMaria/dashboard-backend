@@ -22,8 +22,6 @@ export function createSwaggerConfig(envService: EnvService) {
       `http://localhost:${port}/${globalPrefix}`,
       'Development Server',
     );
-  } else if (environment === 'staging') {
-    builder.addServer('https://staging-api.example.com', 'Staging Server');
   } else if (environment === 'production') {
     builder.addServer('https://api.example.com', 'Production Server');
   }
