@@ -33,7 +33,7 @@ export class ProductService {
     private readonly externalApiService: ExternalApiService,
     private readonly envService: EnvService,
     private readonly logger: LoggerService,
-  ) {}
+  ) { }
 
   /**
    * Fetch products with pagination and search filters
@@ -230,12 +230,17 @@ export class ProductService {
    */
   async generateDescription(productTitle: string): Promise<string> {
     try {
-      const prompt = `Tu trabajo ahora es ayúdarme a generar una descripción comercial para el siguiente producto: ${productTitle}. 
+      const prompt = `Hola, estamos creando un e-commerce en 
+      República Dominicana y necesitamos crear una descripción comercial
+      para cada producto de nuestro catalogo que contenga los regionalismos 
+      clásicos del pais. Para esta tarea, te voy a dar el titulo del producto.
+      Tu trabajo ahora es ayúdarme a generar una descripción comercial 
+      para el siguiente producto: ${productTitle}. 
       Quiero que solo me respondas con el texto en formato html.`;
 
       const content = await this.externalApiService.callChatGptApi([
         { role: 'system', content: 'You are a helpful assistant.' },
-        { role: 'user', content: prompt },
+        { role: 'user', content: prompt.trim() },
       ]);
 
       // Clean the response by removing markdown code blocks and newlines
@@ -266,33 +271,19 @@ export class ProductService {
    */
   async generateKeywords(generateDto: GenerateKeywordsDto): Promise<string[]> {
     try {
-      const { sku, productTitle, productCategory } = generateDto;
-
-      const prompt = `Hola, estamos creando un e-commerce en 
-      República Dominicana y necesitamos crear un listado de keywords 
-      para cada producto de nuestro catalogo que contenga los regionalismos 
-      clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
-      keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
-      categorias. Producto: ${productTitle} y las categorias a que pertenece 
-      son estas: ${productCategory}. Necesito que solo me respondas con el 
-      resultado sea una lista seperada por comma.`;
-
-      const content = await this.externalApiService.callChatGptApi([
-        { role: 'user', content: prompt },
-      ]);
-
-      // Just trim any extra whitespace
-      const keywords = content.split(',').map((keyword) => keyword.trim());
+      const { sku } = generateDto;
 
       // Get product matnr from sku
-      const productMatnr = await this.webProductRepository.findOne({
+      const product = await this.webProductRepository.findOne({
         select: {
+          title: true,
           matnr: true,
+          grupo: true,
         },
         where: { sku },
       });
 
-      if (!productMatnr) {
+      if (!product) {
         throw new HttpException(
           {
             success: false,
@@ -302,8 +293,40 @@ export class ProductService {
         );
       }
 
+      // Get product category from grupo
+      const productCategory = await this.webProductGroupRepository.findOne({
+        select: { cat_app: true },
+        where: { group_sap: product.grupo },
+      });
+
+      if (!productCategory) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Product category not found',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const prompt = `Hola, estamos creando un e-commerce en 
+      República Dominicana y necesitamos crear un listado de keywords 
+      para cada producto de nuestro catalogo que contenga los regionalismos 
+      clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
+      keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
+      categorias. Producto: ${product.title} y las categorias a que pertenece 
+      son estas: ${productCategory.cat_app}. Necesito que solo me respondas con el 
+      resultado sea una lista seperada por comma.`;
+
+      const content = await this.externalApiService.callChatGptApi([
+        { role: 'user', content: prompt },
+      ]);
+
+      // Just trim any extra whitespace
+      const keywords = content.split(',').map((keyword) => keyword.trim());
+
       // Add matnr to keywords
-      return [productMatnr.matnr, ...keywords];
+      return [product.matnr, ...keywords];
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -384,45 +407,6 @@ export class ProductService {
           continue; // Skip to next SKU
         }
 
-        // Get bigItems value from WebProductGroup
-        let bigItems = 0;
-        try {
-          const productGroup = await this.webProductGroupRepository.findOne({
-            where: { group_sap: newProduct.grupo },
-          });
-
-          if (productGroup) {
-            bigItems = productGroup.bigItems;
-          }
-        } catch (groupError) {
-          this.logger.error(
-            `Error fetching product group for SKU ${sku}: ${groupError.message}`,
-            groupError.stack,
-          );
-          // Continue with default bigItems value
-        }
-
-        try {
-          await this.externalApiService.createProductInstaleap({
-            name: newProduct.title,
-            photosUrl: [`${this.envService.baseCloudflareImg}/base`],
-            sku: newProduct.sku,
-            unit: newProduct.unmanejo || 'UND',
-            ean: [newProduct.sku],
-            description: newProduct.description_instaleap,
-            bigItems: bigItems,
-            brand: newProduct.brand,
-          });
-
-          this.logger.log(`Product ${sku} created successfully in Instaleap`);
-        } catch (instaleapError) {
-          this.logger.error(
-            `Failed to create product ${sku} in Instaleap: ${instaleapError.message}`,
-            instaleapError.stack,
-          );
-          // Continue with the process even if Instaleap creation fails
-        }
-
         results.push({
           sku,
           success: true,
@@ -442,6 +426,12 @@ export class ProductService {
           status: ProductCreationStatus.ERROR,
         });
       }
+    }
+
+    // Create success products in Instaleap
+    const successProducts = results.filter((result) => result.success)
+    if (successProducts.length > 0) {
+      await this.externalApiService.createProductInstaleapBySkuBatch(successProducts.map((product) => product.sku));
     }
 
     return results;

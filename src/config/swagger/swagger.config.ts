@@ -12,20 +12,6 @@ export function createSwaggerConfig(envService: EnvService) {
     .setVersion(envService.version)
     .addBearerAuth();
 
-  // Add server information based on environment
-  const environment = envService.environment;
-  const globalPrefix = envService.globalPrefix;
-  const port = envService.port;
-
-  if (environment === 'development') {
-    builder.addServer(
-      `http://localhost:${port}/${globalPrefix}`,
-      'Development Server',
-    );
-  } else if (environment === 'production') {
-    builder.addServer('https://api.example.com', 'Production Server');
-  }
-
   return builder.build();
 }
 

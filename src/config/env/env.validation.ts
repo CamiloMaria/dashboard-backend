@@ -92,11 +92,6 @@ export const envValidationSchema = Joi.object({
     .uri()
     .required()
     .description('Intranet URL'),
-  INSTALEAP_API_BASE_URL: Joi.string()
-    .uri()
-    .required()
-    .description('Instaleap API base URL'),
-  INSTALEAP_API_KEY: Joi.string().required().description('Instaleap API key'),
   SHOPILAMA_API_BASE_URL: Joi.string()
     .uri()
     .required()

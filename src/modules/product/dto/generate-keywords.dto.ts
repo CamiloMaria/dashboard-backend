@@ -9,22 +9,6 @@ export class GenerateKeywordsDto {
   @IsNotEmpty({ message: 'Product SKU is required' })
   @IsString({ message: 'Product SKU must be a string' })
   sku: string;
-
-  @ApiProperty({
-    description: 'Product title to generate keywords for',
-    example: 'Lavadora Whirlpool 10kg con Tecnología Inverter',
-  })
-  @IsNotEmpty({ message: 'Product title is required' })
-  @IsString({ message: 'Product title must be a string' })
-  productTitle: string;
-
-  @ApiProperty({
-    description: 'Product category to consider for keyword generation',
-    example: 'Electrodomésticos, Línea Blanca, Lavadoras',
-  })
-  @IsNotEmpty({ message: 'Product category is required' })
-  @IsString({ message: 'Product category must be a string' })
-  productCategory: string;
 }
 
 export class GenerateKeywordsResponseDto {

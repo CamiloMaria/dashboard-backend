@@ -17,7 +17,7 @@ import { ProductService } from './services/product.service';
 import { ProductMapper } from './mappers/product.mapper';
 import { ResponseService } from '../../common/services/response.service';
 import { ProductPromotionController } from './controllers/product-promotion.controller';
-import { PromotionService } from './services/promotion.service';
+import { PromotionService } from './services/product-promotion.service';
 import { PromotionMapper } from './mappers/promotion.mapper';
 import { ProductSetController } from './controllers/product-set.controller';
 import { ProductSetService } from './services/product-set.service';

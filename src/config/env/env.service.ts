@@ -123,19 +123,11 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.INTRANET_API_BASE_URL);
   }
 
-  get instaleapApiBaseUrl(): string {
-    return this.configService.get<string>(ConfigKeys.INSTALEAP_API_BASE_URL);
-  }
-
-  get instaleapApiKey(): string {
-    return this.configService.get<string>(ConfigKeys.INSTALEAP_API_KEY);
-  }
-
   get shopilamaApiBaseUrl(): string {
     return this.configService.get<string>(ConfigKeys.SHOPILAMA_API_BASE_URL);
   }
 
-  get eCommerceInstaleapAPiBaseUrl(): string {
+  get eCommerceInstaleapApiBaseUrl(): string {
     return this.configService.get<string>(
       ConfigKeys.ECOMMERCE_INSTALEAP_API_BASE_URL,
     );

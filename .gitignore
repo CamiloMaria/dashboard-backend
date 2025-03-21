@@ -61,3 +61,5 @@ junit.xml
 *.tmp
 *.http
 
+# Git
+.github

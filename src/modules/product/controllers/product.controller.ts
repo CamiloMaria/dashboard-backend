@@ -40,7 +40,6 @@ import {
   CreateProductResultDto,
 } from '../dto/create-product.dto';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
-import { ProductImageService } from '../services/product-image.service';
 import { Public } from 'src/common/decorators';
 
 @ApiTags('Products')
@@ -50,7 +49,6 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly responseService: ResponseService,
-    private readonly productImageService: ProductImageService,
   ) {}
 
   @Get('health')

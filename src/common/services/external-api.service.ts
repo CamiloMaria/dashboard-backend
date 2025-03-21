@@ -13,7 +13,6 @@ import {
   ChatGptMessage,
   ChatGptRequestBody,
   ChatGptResponse,
-  CreateProductInstaleap,
   ShopilamaProductResponse,
   UserLoginResponse,
   UpdateCatalogInstaleap,
@@ -28,14 +27,11 @@ export class ExternalApiService {
 
   private readonly intranetApiBaseUrl: string;
   private readonly shopilamaApiBaseUrl: string;
-
-  private readonly instaleapApiBaseUrl: string;
-  private readonly instaleapApiKey: string;
+  private readonly eCommerceInstaleapApiBaseUrl: string;
 
   private readonly cloudflareBaseUrl: string;
   private readonly cloudflareAccountId: string;
   private readonly cloudflareApiToken: string;
-  private readonly cloudflareImageDns: string;
 
   private readonly chatGptUrl: string;
   private readonly chatGptApiKey: string;
@@ -50,14 +46,13 @@ export class ExternalApiService {
   ) {
     this.intranetApiBaseUrl = this.envService.intranetApiBaseUrl;
     this.shopilamaApiBaseUrl = this.envService.shopilamaApiBaseUrl;
+    this.eCommerceInstaleapApiBaseUrl =
+      this.envService.eCommerceInstaleapApiBaseUrl;
     this.chatGptUrl = this.envService.chatGptUrl;
     this.chatGptApiKey = this.envService.chatGptApiKey;
-    this.instaleapApiBaseUrl = this.envService.instaleapApiBaseUrl;
-    this.instaleapApiKey = this.envService.instaleapApiKey;
     this.cloudflareBaseUrl = this.envService.cloudflareBaseUrl;
     this.cloudflareAccountId = this.envService.cloudflareAccountId;
     this.cloudflareApiToken = this.envService.cloudflareApiToken;
-    this.cloudflareImageDns = this.envService.cloudflareImageDns;
   }
 
   /**
@@ -263,27 +258,47 @@ export class ExternalApiService {
    * @param product The product data to create in Instaleap
    * @throws HttpException if the API call fails
    */
-  async createProductInstaleap(
-    product: CreateProductInstaleap,
-  ): Promise<boolean> {
+  async createProductInstaleapBySku(sku: string): Promise<boolean> {
     try {
-      const url = `${this.instaleapApiBaseUrl}/product/products`;
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-instaleap-by-sku`;
 
       const response = await firstValueFrom(
-        this.httpService.post(url, product, {
-          headers: {
-            'x-api-key': this.instaleapApiKey,
-          },
-        }),
+        this.httpService.post(url, { sku }),
       );
 
-      return response.status === 201;
+      return response.status === 201 || response.status === 204;
     } catch (error) {
-      // Skip 409 errors as they indicate the product is already up to date
-      if (error.response?.status === 409) {
-        return true;
-      }
+      this.logger.error(
+        `Error creating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
 
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Create product in Instaleap
+   * @param product The product data to create in Instaleap
+   * @throws HttpException if the API call fails
+   */
+  async createProductInstaleapBySkuBatch(skus: string[]): Promise<boolean> {
+    try {
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-instaleap-by-sku/batch`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, { skus }),
+      );
+
+      return response.status === 201 || response.status === 204;
+    } catch (error) {
       this.logger.error(
         `Error creating product in Instaleap: ${error.message}`,
         error.stack,
@@ -311,15 +326,9 @@ export class ExternalApiService {
     product: UpdateProductInstaleap,
   ): Promise<boolean | null> {
     try {
-      const url = `${this.instaleapApiBaseUrl}/product/products/sku/${sku}`;
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/products/sku/${sku}`;
 
-      const response = await firstValueFrom(
-        this.httpService.put(url, product, {
-          headers: {
-            'x-api-key': this.instaleapApiKey,
-          },
-        }),
-      );
+      const response = await firstValueFrom(this.httpService.put(url, product));
 
       return response.status === 200;
     } catch (error) {
@@ -328,16 +337,7 @@ export class ExternalApiService {
         return null;
       } else if (error.response?.status === 400) {
         // Try to create the product if update fails with 400
-        await this.createProductInstaleap({
-          sku,
-          photosUrl: product.photosUrl,
-          name: product.name,
-          unit: product.unit,
-          specifications: product.specifications,
-          description: product.description,
-          bigItems: product.bigItems,
-          brand: product.brand,
-        });
+        await this.createProductInstaleapBySku(sku);
         return null;
       }
 
@@ -364,15 +364,9 @@ export class ExternalApiService {
    */
   async createCatalogInInstaleap(body: CreateCatalogInstaleap) {
     try {
-      const url = `${this.instaleapApiBaseUrl}/catalog/catalogs`;
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/catalog/catalogs`;
 
-      const response = await firstValueFrom(
-        this.httpService.post(url, body, {
-          headers: {
-            'x-api-key': this.instaleapApiKey,
-          },
-        }),
-      );
+      const response = await firstValueFrom(this.httpService.post(url, body));
 
       return response.status === 200;
     } catch (error) {
@@ -401,15 +395,9 @@ export class ExternalApiService {
     body: UpdateCatalogInstaleap,
   ) {
     try {
-      const url = `${this.instaleapApiBaseUrl}/catalog/catalogs/sku/${params.sku}/storeReference/${params.storeReference}`;
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/catalog/catalogs/sku/${params.sku}/storeReference/${params.storeReference}`;
 
-      const response = await firstValueFrom(
-        this.httpService.put(url, body, {
-          headers: {
-            'x-api-key': this.instaleapApiKey,
-          },
-        }),
-      );
+      const response = await firstValueFrom(this.httpService.put(url, body));
 
       return response.status === 200 || response.status === 204;
     } catch (error) {
@@ -581,6 +569,32 @@ export class ExternalApiService {
         {
           success: false,
           message: 'Failed to delete image from Cloudflare',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  async createProductSetBySetSku(setSku: string): Promise<boolean> {
+    try {
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-product-set-by-set-sku`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, { setSku }),
+      );
+
+      return response.status === 201 || response.status === 204;
+    } catch (error) {
+      this.logger.error(
+        `Error creating product set in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product set in Instaleap',
           error: error.message,
         },
         HttpStatus.BAD_GATEWAY,

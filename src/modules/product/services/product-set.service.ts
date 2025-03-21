@@ -41,7 +41,6 @@ export class ProductSetService {
     private readonly shopDataSource: DataSource,
     private readonly productSetMapper: ProductSetMapper,
     private readonly externalApiService: ExternalApiService,
-    private readonly envService: EnvService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -392,15 +391,7 @@ export class ProductSetService {
         (sum, entry) => sum + Number(entry.price),
         0,
       );
-
-      // Calculate stock as the minimum stock from CD01 catalog entries
-      const stock =
-        cd01CatalogEntries.length > 0
-          ? Math.min(
-              ...cd01CatalogEntries.map((entry) => Number(entry.stock) || 0),
-            )
-          : 0;
-
+      
       // Call the stored procedure to create the set
       await this.shopDataSource.query('CALL CreateSetProduct(?, ?, ?, ?, ?)', [
         skus,
@@ -410,110 +401,16 @@ export class ProductSetService {
         freeProducts,
       ]);
 
-      for (const catalogEntry of catalogEntries) {
-        await this.externalApiService.updateCatalogInInstaleap(
-          {
-            sku: catalogEntry.sku,
-            storeReference: catalogEntry.pl,
-          },
-          {
-            isActive: false,
-          },
-        );
-
-        if (catalogEntry.pl === 'PL08') {
-          await this.externalApiService.updateCatalogInInstaleap(
-            {
-              sku: catalogEntry.sku,
-              storeReference: `${catalogEntry.pl}-D`,
-            },
-            { isActive: false },
-          );
-        }
-      }
-
-      const productSet = await this.productSetRepository.findOneBy({
-        title,
+      const productSet = await this.productSetRepository.findOne({
+        select: {
+          set_sku: true,
+        },
+        where: {
+          title,
+        },
       });
 
-      // Get all images from the first product that has images
-      // Extract image URLs from the products with images
-      const productImages = productsWithCloudflareImages
-        .map((product) => product.src_cloudflare)
-        .filter(Boolean);
-
-      await this.externalApiService.createProductInstaleap({
-        name: productSet.title,
-        sku: productSet.set_sku,
-        unit: existingProducts[0].unmanejo || 'UND',
-        photosUrl:
-          productImages && productImages.length > 0
-            ? productImages
-            : [`${this.envService.baseCloudflareImg}/base`],
-        ean: [productSet.set_sku],
-        description: existingProducts[0].description_instaleap,
-        bigItems: productsGroup.bigItems,
-        brand: existingProducts[0].brand,
-      });
-
-      // Get unique store references (pl values) from catalog entries
-      const uniqueStores = [
-        ...new Set(catalogEntries.map((entry) => entry.pl)),
-      ];
-
-      // Create a catalog entry in Instaleap for each store
-      for (const storeReference of uniqueStores) {
-        await this.externalApiService.createCatalogInInstaleap({
-          product: {
-            sku: productSet.set_sku,
-          },
-          store: {
-            storeReference,
-          },
-          categoriesAggregated: [
-            {
-              categoryReference: productsGroup.level1_instaleap,
-            },
-            {
-              categoryReference: productsGroup.level2_instaleap,
-            },
-            {
-              categoryReference: productsGroup.level3_instaleap,
-            },
-          ],
-          price: Number(productSet.price),
-          stock: stock,
-          isActive: stock > existingProducts[0].security_stock,
-          securityStock: existingProducts[0].security_stock,
-        });
-
-        // For PL08, also create a catalog entry for PL08-D
-        if (storeReference === 'PL08') {
-          await this.externalApiService.createCatalogInInstaleap({
-            product: {
-              sku: productSet.set_sku,
-            },
-            store: {
-              storeReference: `${storeReference}-D`,
-            },
-            categoriesAggregated: [
-              {
-                categoryReference: productsGroup.level1_instaleap,
-              },
-              {
-                categoryReference: productsGroup.level2_instaleap,
-              },
-              {
-                categoryReference: productsGroup.level3_instaleap,
-              },
-            ],
-            price: productSet.price,
-            stock: stock,
-            isActive: stock > existingProducts[0].security_stock,
-            securityStock: existingProducts[0].security_stock,
-          });
-        }
-      }
+      await this.externalApiService.createProductSetBySetSku(productSet.set_sku);
 
       return {
         success: true,

@@ -15,7 +15,7 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { PromotionService } from '../services/promotion.service';
+import { PromotionService } from '../services/product-promotion.service';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
 import { PromotionFilterDto } from '../dto/promotion-filter.dto';
 import {
