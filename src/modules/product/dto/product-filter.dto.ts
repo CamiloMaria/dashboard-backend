@@ -46,6 +46,16 @@ export class ProductFilterDto extends PaginationQueryDto {
   matnr?: string;
 
   @ApiProperty({
+    description: 'Unified search across SKU, title, and MATNR',
+    required: false,
+    example: 'colchon',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  search?: string;
+
+  @ApiProperty({
     description: 'Field to sort by',
     required: false,
     enum: SortField,

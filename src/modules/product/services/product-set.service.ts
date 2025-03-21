@@ -22,7 +22,7 @@ import {
   CreateProductSetResultDto,
   ProductSetCreationStatus,
 } from '../dto/create-product-set.dto';
-import { EnvService, LoggerService } from 'src/config';
+import { LoggerService } from 'src/config';
 import { ExternalApiService } from 'src/common';
 @Injectable()
 export class ProductSetService {
@@ -391,7 +391,7 @@ export class ProductSetService {
         (sum, entry) => sum + Number(entry.price),
         0,
       );
-      
+
       // Call the stored procedure to create the set
       await this.shopDataSource.query('CALL CreateSetProduct(?, ?, ?, ?, ?)', [
         skus,
@@ -410,7 +410,9 @@ export class ProductSetService {
         },
       });
 
-      await this.externalApiService.createProductSetBySetSku(productSet.set_sku);
+      await this.externalApiService.createProductSetBySetSku(
+        productSet.set_sku,
+      );
 
       return {
         success: true,

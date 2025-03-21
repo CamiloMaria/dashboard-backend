@@ -17,7 +17,7 @@ import {
   CreateProductResultDto,
   ProductCreationStatus,
 } from '../dto/create-product.dto';
-import { EnvService, LoggerService } from 'src/config';
+import { LoggerService } from 'src/config';
 import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
 @Injectable()
@@ -31,9 +31,8 @@ export class ProductService {
     private readonly webProductGroupRepository: Repository<WebProductGroup>,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
-    private readonly envService: EnvService,
     private readonly logger: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Fetch products with pagination and search filters
@@ -50,6 +49,7 @@ export class ProductService {
         sku,
         title,
         matnr,
+        search,
         sortBy = SortField.TITLE,
         sortOrder = SortOrder.ASC,
       } = filterDto;
@@ -62,19 +62,36 @@ export class ProductService {
       const offset = (validPage - 1) * validLimit;
 
       // Build where conditions for search
-      const whereConditions: FindOptionsWhere<WebProduct> = {};
+      let whereConditions:
+        | FindOptionsWhere<WebProduct>
+        | FindOptionsWhere<WebProduct>[] = {};
 
-      // Add search filters if provided
-      if (sku) {
-        whereConditions.sku = sku;
-      }
+      // If unified search term is provided, create OR conditions for multiple fields
+      if (search) {
+        whereConditions = [
+          { title: Like(`%${search}%`) },
+          { sku: Like(`%${search}%`) },
+          { matnr: Like(`%${search}%`) },
+        ];
+      } else {
+        // Add individual search filters if provided
+        if (sku) {
+          whereConditions =
+            typeof whereConditions === 'object' ? whereConditions : {};
+          whereConditions.sku = Like(`%${sku}%`);
+        }
 
-      if (title) {
-        whereConditions.title = Like(`%${title}%`);
-      }
+        if (title) {
+          whereConditions =
+            typeof whereConditions === 'object' ? whereConditions : {};
+          whereConditions.title = Like(`%${title}%`);
+        }
 
-      if (matnr) {
-        whereConditions.matnr = matnr;
+        if (matnr) {
+          whereConditions =
+            typeof whereConditions === 'object' ? whereConditions : {};
+          whereConditions.matnr = Like(`%${matnr}%`);
+        }
       }
 
       // Get total count of active products matching the search criteria
@@ -429,9 +446,11 @@ export class ProductService {
     }
 
     // Create success products in Instaleap
-    const successProducts = results.filter((result) => result.success)
+    const successProducts = results.filter((result) => result.success);
     if (successProducts.length > 0) {
-      await this.externalApiService.createProductInstaleapBySkuBatch(successProducts.map((product) => product.sku));
+      await this.externalApiService.createProductInstaleapBySkuBatch(
+        successProducts.map((product) => product.sku),
+      );
     }
 
     return results;
