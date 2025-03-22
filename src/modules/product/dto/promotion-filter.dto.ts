@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaginationQueryDto } from './pagination-query.dto';
 
 export enum SortField {
   SKU = 'sku',
@@ -15,29 +16,7 @@ export enum SortOrder {
 /**
  * DTO for filtering and sorting product promotions
  */
-export class PromotionFilterDto {
-  @ApiProperty({
-    description: 'Page number (1-based)',
-    default: 1,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiProperty({
-    description: 'Number of items per page',
-    default: 10,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number;
-
+export class PromotionFilterDto extends PaginationQueryDto {
   @ApiProperty({
     description: 'Promotion ID',
     required: false,
