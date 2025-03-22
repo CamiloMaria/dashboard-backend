@@ -116,7 +116,10 @@ export const envValidationSchema = Joi.object({
 
   // Third-party APIs
   CHAT_GPT_API_KEY: Joi.string().required().description('ChatGPT API key'),
-  CHAT_GPT_URL: Joi.string().uri().required().description('ChatGPT API URL'),
+  CHAT_GPT_BASE_URL: Joi.string()
+    .uri()
+    .required()
+    .description('ChatGPT API base URL'),
 
   CLOUDFLARE_BASE_URL: Joi.string()
     .uri()

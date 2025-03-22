@@ -55,5 +55,5 @@ export enum ConfigKeys {
 
   // ChatGPT API
   CHAT_GPT_API_KEY = 'CHAT_GPT_API_KEY',
-  CHAT_GPT_URL = 'CHAT_GPT_URL',
+  CHAT_GPT_BASE_URL = 'CHAT_GPT_BASE_URL',
 }

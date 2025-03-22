@@ -167,7 +167,7 @@ export class EnvService {
   }
 
   get chatGptUrl(): string {
-    return this.configService.get<string>(ConfigKeys.CHAT_GPT_URL);
+    return this.configService.get<string>(ConfigKeys.CHAT_GPT_BASE_URL);
   }
 
   // Helper methods for database connection configs
