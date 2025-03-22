@@ -5,7 +5,7 @@ import { WebProduct } from '../entities/shop/web-product.entity';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { ProductMapper } from '../mappers/product.mapper';
-import { PaginationMeta } from '../../../config/swagger/response.schema';
+import { PaginationMeta } from '../../../common/schemas/response.schema';
 import {
   ProductFilterDto,
   SortField,

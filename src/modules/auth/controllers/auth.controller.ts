@@ -21,7 +21,7 @@ import {
 import { AuthService } from '../services/auth.service';
 import { LoginDto } from '../dto/login.dto';
 import { UserLoginResponseDto } from '../dto/auth-response.dto';
-import { BaseResponse } from '../../../config/swagger/response.schema';
+import { BaseResponse } from '../../../common/schemas/response.schema';
 import { JwtAuthGuard, RolesGuard, RequirePages } from '../../../common/guards';
 import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';

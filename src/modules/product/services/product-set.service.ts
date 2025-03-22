@@ -12,7 +12,7 @@ import {
 import { ProductSetResponseDto } from '../dto/product-set-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { ProductSetMapper } from '../mappers/product-set.mapper';
-import { PaginationMeta } from '../../../config/swagger/response.schema';
+import { PaginationMeta } from '../../../common/schemas/response.schema';
 import {
   ProductSetFilterDto,
   SortField,

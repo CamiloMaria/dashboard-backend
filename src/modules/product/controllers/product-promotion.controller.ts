@@ -21,7 +21,7 @@ import { PromotionFilterDto } from '../dto/promotion-filter.dto';
 import {
   BaseResponse,
   PaginatedResponse,
-} from '../../../config/swagger/response.schema';
+} from '../../../common/schemas/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
 import { Public } from 'src/common/decorators';
 

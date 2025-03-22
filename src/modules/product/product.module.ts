@@ -11,6 +11,7 @@ import {
   WebPromo,
   WebSetProducts,
   WebProductSetRelation,
+  WebProductRemoved,
 } from './entities/shop';
 import { ProductController } from './controllers/product.controller';
 import { ProductService } from './services/product.service';
@@ -33,6 +34,7 @@ import { ProductImageController } from './controllers/product-image.controller';
         WebProduct,
         WebProductImage,
         WebProductGroup,
+        WebProductRemoved,
         WebCatalog,
         WebPromo,
         WebProductPromo,

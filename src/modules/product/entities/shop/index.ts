@@ -6,3 +6,4 @@ export * from './web-promo.entity';
 export * from './web-product-promo.entity';
 export * from './web-product-set.entity';
 export * from './web-product-set-relation.entity';
+export * from './web-product-removed.entity';

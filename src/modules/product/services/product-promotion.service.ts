@@ -5,7 +5,7 @@ import { WebProductPromo } from '../entities/shop/web-product-promo.entity';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { PromotionMapper } from '../mappers/promotion.mapper';
-import { PaginationMeta } from '../../../config/swagger/response.schema';
+import { PaginationMeta } from '../../../common/schemas/response.schema';
 import {
   PromotionFilterDto,
   SortField,

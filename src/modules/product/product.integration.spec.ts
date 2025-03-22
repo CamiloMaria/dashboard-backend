@@ -20,7 +20,7 @@ import {
   WebProductPromo,
   WebPromo,
 } from './entities/shop';
-import { PaginationMeta } from '../../config/swagger/response.schema';
+import { PaginationMeta } from '../../common/schemas/response.schema';
 
 // Mock repositories
 const mockRepository = {

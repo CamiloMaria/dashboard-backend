@@ -4,7 +4,7 @@ import { ProductController } from './product.controller';
 import { ProductService } from '../services/product.service';
 import { ResponseService } from '../../../common/services/response.service';
 import { ProductFilterDto } from '../dto/product-filter.dto';
-import { PaginationMeta } from '../../../config/swagger/response.schema';
+import { PaginationMeta } from '../../../common/schemas/response.schema';
 import { ProductResponseDto } from '../dto/product-response.dto';
 
 // Mock response data

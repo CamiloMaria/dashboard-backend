@@ -25,7 +25,7 @@ import { ProductSetFilterDto } from '../dto/product-set-filter.dto';
 import {
   BaseResponse,
   PaginatedResponse,
-} from '../../../config/swagger/response.schema';
+} from '../../../common/schemas/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
 import {
   CreateProductSetDto,

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   BaseResponse,
   PaginationMeta,
-} from '../../config/swagger/response.schema';
+} from '../schemas/response.schema';
 
 /**
  * Interface for standardized responses
