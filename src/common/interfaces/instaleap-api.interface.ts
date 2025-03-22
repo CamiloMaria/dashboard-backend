@@ -1,32 +1,61 @@
-interface SpecificationValue {
-  label: string;
-  value: string;
-}
-
-interface Specification {
-  title?: string;
-  values: SpecificationValue[];
-}
-
-export interface UpdateProductInstaleap {
-  name?: string;
-  photosUrl?: string[];
-  unit?: string;
-  clickMultiplier?: number;
+/**
+ * Interface for creating a product in Instaleap
+ */
+export interface CreateProductInstaleap {
   ean?: string[];
+  name: string;
+  unit: string;
+  photosUrl: string[];
+  clickMultiplier?: number;
+  subUnit?: string;
   boost?: number;
   description?: string;
   brand?: string;
   searchKeywords?: string;
   subQty?: number;
   nutritionalDetails?: string;
-  relatedProducts?: string[];
-  ingredients?: string[];
-  specifications?: Specification[] | [];
+  suggestedReplacementClient?: string[][];
+  pickingMultiplier?: {
+    from: number;
+    multiplier: number;
+  }[];
   bigItems?: number;
-  suggestedReplacementClient?: string[];
+  relatedProducts?: string[];
+  lots?: {
+    availableLots: string[];
+    isActive: boolean;
+  };
+  dimensions?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  weight?: number;
+  volume?: number;
+}
+/**
+ * Interface for creating a batch of products in Instaleap
+ */
+export interface CreateBatchProductInstaleap {
+  products: (CreateProductInstaleap & { sku: string })[];
 }
 
+/**
+ * Type for updating a product in Instaleap
+ * All properties are optional
+ */
+export type UpdateProductInstaleap = Partial<CreateProductInstaleap>;
+
+/**
+ * Type for updating a batch of products in Instaleap
+ */
+export type UpdateBatchProductInstaleap = {
+  products: (UpdateProductInstaleap & { sku: string })[];
+};
+
+/**
+ * Interface for product inventory in Instaleap catalog
+ */
 export interface CreateCatalogInstaleap {
   product: {
     sku: string;
@@ -34,59 +63,96 @@ export interface CreateCatalogInstaleap {
   store: {
     storeReference: string;
   };
-  categoriesAggregated?: CategoryAggregated[];
-  price?: number;
+  categoriesAggregated: {
+    categoryReference: string;
+  }[];
+  price: number;
   priceBeforeTaxes?: number;
   taxTotal?: number;
-  taxes?: Tax[];
-  stock?: number;
+  taxes?: {
+    taxId: string;
+    taxName: string;
+    taxType: string;
+    taxValue: number;
+    taxSubTotal: number;
+  }[];
+  stock: number;
   maxQty?: number;
   minQty?: number;
   isActive?: boolean;
   location?: string;
   securityStock?: number;
-  tags?: Tag[];
+  tags?: {
+    tagReference: string;
+  }[];
   lowStockThreshold?: number;
   relatedStores?: string[];
   claimInformation?: {
-    maxClaimTimeHrs?: number;
-    availableClaimActions?: string[];
+    maxClaimTimeHrs: number;
+    availableClaimActions: string[];
   };
 }
 
-export interface UpdateCatalogInstaleap {
-  price?: number;
-  priceBeforeTaxes?: number;
-  taxTotal?: number;
-  taxes?: Tax[];
-  stock?: number;
-  maxQty?: number;
-  minQty?: number;
-  isActive?: boolean;
-  location?: string;
-  securityStock?: number;
-  categoriesAggregated?: CategoryAggregated[];
-  tags?: Tag[];
-  lowStockThreshold?: number;
-  relatedStores?: string[];
-  claimInformation?: {
-    maxClaimTimeHrs?: number;
-    availableClaimActions?: string[];
+/**
+ * Interface for creating a batch of catalog entries in Instaleap
+ * Reuses CreateCatalogInstaleap but overrides product, store, categoriesAggregated
+ */
+export type BatchCatalogItem = Omit<
+  CreateCatalogInstaleap,
+  'product' | 'store' | 'categoriesAggregated'
+> & {
+  sku: string;
+  storeReference: string;
+  categories: string[];
+};
+
+/**
+ * Interface for creating a batch of catalog entries in Instaleap
+ */
+export interface CreateBatchCatalogInstaleap {
+  catalogs: BatchCatalogItem[];
+}
+
+/**
+ * Utility function to convert CreateCatalogInstaleap to BatchCatalogItem
+ */
+export function transformToCatalogItem(
+  input: CreateCatalogInstaleap,
+): BatchCatalogItem {
+  return {
+    sku: input.product.sku,
+    storeReference: input.store.storeReference,
+    categories: input.categoriesAggregated.map((c) => c.categoryReference),
+    price: input.price,
+    priceBeforeTaxes: input.priceBeforeTaxes,
+    taxTotal: input.taxTotal,
+    taxes: input.taxes,
+    stock: input.stock,
+    maxQty: input.maxQty,
+    minQty: input.minQty,
+    isActive: input.isActive,
+    location: input.location,
+    securityStock: input.securityStock,
+    tags: input.tags,
+    lowStockThreshold: input.lowStockThreshold,
+    relatedStores: input.relatedStores,
+    claimInformation: input.claimInformation,
   };
 }
 
-interface Tax {
-  taxId: string;
-  taxName: string;
-  taxType: string;
-  taxValue: number;
-  taxSubTotal: number;
-}
+/**
+ * Type for updating a catalog entry in Instaleap by SKU and store reference
+ */
+export type UpdateCatalogInstaleap = Partial<
+  Omit<CreateCatalogInstaleap, 'product' | 'store'>
+>;
 
-interface CategoryAggregated {
-  categoryReference: string;
-}
-
-interface Tag {
-  tagReference: string;
+/**
+ * Partial interface for updating a batch of catalog entries in Instaleap
+ */
+export interface UpdateBatchCatalogInstaleap {
+  catalogs: (Partial<BatchCatalogItem> & {
+    sku: string;
+    storeReference: string;
+  })[];
 }
