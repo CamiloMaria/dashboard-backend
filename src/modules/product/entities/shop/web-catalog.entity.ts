@@ -51,6 +51,31 @@ export class WebCatalog {
   @Column('tinyint', { default: 0 })
   in_set: boolean;
 
+  @Column('text', {
+    nullable: true,
+    comment: 'Reason for deactivation or status change',
+  })
+  status_comment: string;
+
+  @Column('tinyint', {
+    default: 0,
+    comment: 'If true, status will not be automatically updated by cron jobs',
+  })
+  manual_override: boolean;
+
+  @Column('datetime', {
+    nullable: true,
+    comment: 'When the status was last changed',
+  })
+  status_changed_at: Date;
+
+  @Column('varchar', {
+    length: 45,
+    nullable: true,
+    comment: 'User who last changed the status',
+  })
+  status_changed_by: string;
+
   @CreateDateColumn({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

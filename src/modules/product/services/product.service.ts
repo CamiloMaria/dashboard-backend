@@ -20,6 +20,8 @@ import {
 import { LoggerService } from 'src/config';
 import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
+import { ProductPatchDto } from '../dto/product-update.dto';
+import { WebCatalog } from '../entities/shop/web-catalog.entity';
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
@@ -29,6 +31,8 @@ export class ProductService {
     private readonly webProductRepository: Repository<WebProduct>,
     @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
     private readonly webProductGroupRepository: Repository<WebProductGroup>,
+    @InjectRepository(WebCatalog, DatabaseConnection.SHOP)
+    private readonly webCatalogRepository: Repository<WebCatalog>,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly logger: LoggerService,
@@ -502,6 +506,184 @@ export class ProductService {
         {
           success: false,
           message: 'Failed to create product',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Update a product and/or its catalogs
+   * @param productId The ID of the product to update
+   * @param updateDto The data to update
+   * @param username The username of the user making the update
+   * @returns The updated product
+   */
+  async updateProduct(
+    productId: number,
+    updateDto: ProductPatchDto,
+    username: string,
+  ): Promise<ProductResponseDto> {
+    try {
+      // Find the product with its catalogs
+      const product = await this.webProductRepository.findOne({
+        where: { num: productId },
+        relations: ['images', 'catalogs'],
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with ID ${productId} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Update product fields if provided
+      if (updateDto.product) {
+        const {
+          title,
+          description_instaleap,
+          specifications,
+          search_keywords,
+          security_stock,
+          click_multiplier,
+          borrado,
+          borrado_comment,
+        } = updateDto.product;
+
+        // Update fields only if they are provided
+        if (title !== undefined) product.title = title;
+        if (description_instaleap !== undefined)
+          product.description_instaleap = description_instaleap;
+        if (specifications !== undefined)
+          product.specifications = specifications;
+        if (search_keywords !== undefined)
+          product.search_keywords = search_keywords;
+        if (security_stock !== undefined)
+          product.security_stock = security_stock;
+        if (click_multiplier !== undefined)
+          product.click_multiplier = click_multiplier;
+        if (borrado !== undefined) product.borrado = borrado;
+        if (borrado_comment !== undefined)
+          product.borrado_comment = borrado_comment;
+
+        // Set the user who updated the product
+        product.userUpd = username;
+
+        // Save the updated product
+        await this.webProductRepository.save(product);
+
+        // If product was updated in Instaleap, update it there as well
+        if (
+          title !== undefined ||
+          description_instaleap !== undefined ||
+          borrado !== undefined
+        ) {
+          try {
+            await this.externalApiService.updateProductInstaleap(product.sku, {
+              name: title,
+              description: description_instaleap,
+            });
+          } catch (instaleapError) {
+            this.logger.error(
+              `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+              instaleapError.stack,
+            );
+            // Continue with the process even if Instaleap update fails
+          }
+        }
+      }
+
+      // Update catalogs if provided
+      if (updateDto.catalogs && updateDto.catalogs.length > 0) {
+        for (const catalogUpdate of updateDto.catalogs) {
+          const catalog = await this.webCatalogRepository.findOne({
+            where: { id: catalogUpdate.id },
+          });
+
+          if (!catalog) {
+            this.logger.warn(
+              `Catalog with ID ${catalogUpdate.id} not found during product update`,
+            );
+            continue;
+          }
+
+          // Update status if provided
+          if (catalogUpdate.status !== undefined) {
+            catalog.status = catalogUpdate.status;
+
+            // Set status changed timestamp
+            catalog.status_changed_at = new Date();
+
+            // Set status changed by user
+            catalog.status_changed_by = username;
+
+            // Set manual override if status is being updated
+            catalog.manual_override = true;
+          }
+
+          // Update status comment if provided
+          if (catalogUpdate.status_comment !== undefined) {
+            catalog.status_comment = catalogUpdate.status_comment;
+          }
+
+          // Update manual override if explicitly provided
+          if (catalogUpdate.manual_override !== undefined) {
+            catalog.manual_override = catalogUpdate.manual_override;
+          }
+
+          // Save the updated catalog
+          await this.webCatalogRepository.save(catalog);
+
+          // Update catalog in Instaleap if needed
+          if (catalogUpdate.status !== undefined) {
+            try {
+              await this.externalApiService.updateCatalogInInstaleap(
+                {
+                  sku: catalog.sku,
+                  storeReference: catalog.pl,
+                },
+                {
+                  isActive: catalog.status === 1,
+                },
+              );
+            } catch (instaleapError) {
+              this.logger.error(
+                `Failed to update catalog ${catalog.sku}/${catalog.pl} in Instaleap: ${instaleapError.message}`,
+                instaleapError.stack,
+              );
+              // Continue with the process even if Instaleap update fails
+            }
+          }
+        }
+      }
+
+      // Reload the product with its updated relations
+      const updatedProduct = await this.webProductRepository.findOne({
+        where: { num: productId },
+        relations: ['images', 'catalogs'],
+      });
+
+      return this.productMapper.mapToDto(updatedProduct);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Failed to update product with ID ${productId}: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to update product with ID ${productId}`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

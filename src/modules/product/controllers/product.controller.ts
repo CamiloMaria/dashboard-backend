@@ -10,6 +10,7 @@ import {
   Query,
   Request,
   HttpCode,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -41,6 +42,7 @@ import {
 } from '../dto/create-product.dto';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
+import { ProductPatchDto } from '../dto/product-update.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -347,6 +349,73 @@ export class ProductController {
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a product and/or its catalogs' })
+  @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
+  @ApiBody({ type: ProductPatchDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product updated successfully',
+    type: BaseResponse<ProductResponseDto>,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request',
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product not found',
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse<null>,
+  })
+  async updateProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: ProductPatchDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      const updatedProduct = await this.productService.updateProduct(
+        id,
+        updateDto,
+        username,
+      );
+
+      return this.responseService.success(
+        updatedProduct,
+        'Product updated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to update product',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
