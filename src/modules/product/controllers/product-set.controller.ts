@@ -8,6 +8,8 @@ import {
   Body,
   Request,
   HttpCode,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiParam,
 } from '@nestjs/swagger';
 import { ProductSetService } from '../services/product-set.service';
 import { ProductSetResponseDto } from '../dto/product-set-response.dto';
@@ -30,6 +33,7 @@ import {
 } from '../dto/create-product-set.dto';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
+import { ProductSetDeleteDto } from '../dto/product-set-delete.dto';
 
 @ApiTags('Products Sets')
 @Controller('product-sets')
@@ -178,6 +182,93 @@ export class ProductSetController {
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete(':setSku')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a product set',
+    description:
+      'Delete a product set by its SKU. This will remove the set and reactivate its component products if they have sufficient stock.',
+  })
+  @ApiParam({
+    name: 'setSku',
+    description: 'The SKU of the product set to delete',
+    type: 'string',
+    example: 'SET1234567',
+  })
+  @ApiBody({ type: ProductSetDeleteDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product set deleted successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product set not found',
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse<null>,
+  })
+  async deleteProductSet(
+    @Param('setSku') setSku: string,
+    @Body() deleteDto: ProductSetDeleteDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      const result = await this.productSetService.deleteProductSet(
+        setSku,
+        deleteDto.comment,
+        username,
+      );
+
+      return this.responseService.success(
+        result,
+        'Product set deletion processed',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to delete product set',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

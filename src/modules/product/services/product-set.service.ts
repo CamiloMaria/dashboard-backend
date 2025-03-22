@@ -7,6 +7,7 @@ import {
   WebCatalog,
   WebProductImage,
   WebProductGroup,
+  WebProductSetRelation,
 } from '../entities/shop';
 import { ProductSetResponseDto } from '../dto/product-set-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
@@ -24,6 +25,7 @@ import {
 } from '../dto/create-product-set.dto';
 import { LoggerService } from 'src/config';
 import { ExternalApiService } from 'src/common';
+
 @Injectable()
 export class ProductSetService {
   constructor(
@@ -37,6 +39,8 @@ export class ProductSetService {
     private readonly webProductImageRepository: Repository<WebProductImage>,
     @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
     private readonly webProductGroupRepository: Repository<WebProductGroup>,
+    @InjectRepository(WebProductSetRelation, DatabaseConnection.SHOP)
+    private readonly productSetRelationRepository: Repository<WebProductSetRelation>,
     @InjectDataSource(DatabaseConnection.SHOP)
     private readonly shopDataSource: DataSource,
     private readonly productSetMapper: ProductSetMapper,
@@ -410,6 +414,34 @@ export class ProductSetService {
         },
       });
 
+      if (!productSet) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Product set not found',
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      for (const sku of skus) {
+        // Get all catalogs for this product
+        const catalogs = await this.webCatalogRepository.find({
+          where: { sku },
+        });
+
+        for (const catalog of catalogs) {
+          catalog.status = 0;
+          catalog.status_changed_at = new Date();
+          catalog.status_changed_by = username;
+          catalog.status_comment = `Deactivated after set ${productSet.set_sku} creation`;
+          catalog.manual_override = true;
+
+          await this.webCatalogRepository.save(catalog);
+        }
+      }
+      // Create the product set in Instaleap
       await this.externalApiService.createProductSetBySetSku(
         productSet.set_sku,
       );
@@ -431,6 +463,155 @@ export class ProductSetService {
         status: ProductSetCreationStatus.ERROR,
         error: error.message,
       };
+    }
+  }
+
+  /**
+   * Delete a product set and reactivate its component products
+   * @param setSku The SKU of the product set to delete
+   * @param comment Optional reason for deletion
+   * @param username The username of the user performing the deletion
+   * @returns Object with success status and message
+   */
+  async deleteProductSet(
+    setSku: string,
+    comment: string,
+    username: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Start a transaction to ensure all operations succeed or fail together
+      const queryRunner =
+        this.productSetRepository.manager.connection.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // Find the product set and verify it exists
+        const productSet = await this.productSetRepository.findOne({
+          where: { set_sku: setSku },
+          relations: ['relations', 'relations.product'],
+        });
+
+        if (!productSet) {
+          throw new HttpException(
+            {
+              success: false,
+              message: `Product set with SKU ${setSku} not found`,
+              error: 'NOT_FOUND',
+            },
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // Log the deletion operation
+        this.logger.log(
+          `User ${username} is deleting product set ${setSku} (${productSet.title})`,
+        );
+
+        // Get product SKUs that are part of the set
+        const productSkus = productSet.relations.map(
+          (relation) => relation.product.sku,
+        );
+
+        this.logger.log(
+          `Product set ${setSku} contains products: ${productSkus.join(', ')}`,
+        );
+
+        // Call the stored procedure to delete the set
+        await this.shopDataSource.query('CALL DeleteSetProduct(?)', [setSku]);
+
+        // For each product in the set, reactivate its catalogs
+        for (const sku of productSkus) {
+          // Get all catalogs for this product
+          const catalogs = await this.webCatalogRepository.find({
+            where: { sku },
+          });
+
+          for (const catalog of catalogs) {
+            // Only modify catalogs that were deactivated for the set and not manually overridden
+            if (catalog.status === 0 && !catalog.manual_override) {
+              // Reactivate the catalog if stock is sufficient
+              if ((catalog.stock || 0) > 0) {
+                catalog.status = 1;
+                catalog.status_changed_at = new Date();
+                catalog.status_changed_by = username;
+                catalog.status_comment = `Reactivated after set ${setSku} deletion`;
+
+                await this.webCatalogRepository.save(catalog);
+
+                // Update catalog in Instaleap
+                try {
+                  await this.externalApiService.updateCatalogInInstaleap(
+                    {
+                      sku: catalog.sku,
+                      storeReference: catalog.pl,
+                    },
+                    {
+                      isActive: true,
+                    },
+                  );
+                } catch (error) {
+                  // Log error but continue with deletion
+                  this.logger.error(
+                    `Failed to reactivate catalog ${catalog.sku}/${catalog.pl} in Instaleap: ${error.message}`,
+                    error.stack,
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        // Try to deactivate the set in Instaleap
+        try {
+          // Since the set is now deleted, we'll update it in Instaleap
+          await this.externalApiService.updateProductInstaleap(setSku, {
+            name: `[DELETED] ${productSet.title}`,
+            searchKeywords: 'deleted,removed,inactive',
+            boost: 0,
+          });
+        } catch (error) {
+          // Log error but continue with deletion
+          this.logger.error(
+            `Failed to deactivate product set ${setSku} in Instaleap: ${error.message}`,
+            error.stack,
+          );
+        }
+
+        // Commit the transaction
+        await queryRunner.commitTransaction();
+
+        // Return success
+        return {
+          success: true,
+          message: `Product set ${setSku} deleted successfully. ${productSkus.length} product(s) reactivated.`,
+        };
+      } catch (error) {
+        // Rollback the transaction if anything fails
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        // Release the query runner
+        await queryRunner.release();
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Failed to delete product set with SKU ${setSku}: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to delete product set with SKU ${setSku}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }
