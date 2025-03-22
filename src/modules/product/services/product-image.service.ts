@@ -302,4 +302,602 @@ export class ProductImageService {
       }
     }
   }
+
+  /**
+   * Update a product image at a specific position
+   * @param file Uploaded image file
+   * @param sku Product SKU
+   * @param position Position of the image to update
+   * @param username Username of the user updating the image
+   * @returns Object with success status and image data
+   */
+  async updateProductImage(
+    file: Express.Multer.File,
+    sku: string,
+    position: number,
+    username: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    imageId?: number;
+    position?: number;
+    url?: string;
+  }> {
+    // Start a transaction
+    const queryRunner =
+      this.webProductRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the product by SKU
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.log(
+        `Updating image at position ${position} for product ${sku} by ${username}`,
+      );
+
+      // Check if an image already exists at this position
+      const existingImage = await this.webProductImageRepository.findOne({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          position,
+        },
+      });
+
+      // If an image exists at this position, delete it from Cloudflare
+      if (existingImage) {
+        this.logger.log(
+          `Found existing image at position ${position} for product ${sku} (ID: ${existingImage.id})`,
+        );
+
+        if (existingImage.id_cloudflare) {
+          try {
+            // Delete from Cloudflare
+            await this.externalApiService.deleteImage(
+              existingImage.id_cloudflare,
+            );
+            this.logger.log(
+              `Deleted image from Cloudflare (ID: ${existingImage.id_cloudflare})`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to delete image from Cloudflare: ${error.message}`,
+              error.stack,
+            );
+            // Continue with the update even if Cloudflare deletion fails
+          }
+        }
+
+        // Delete the image record from the database
+        await this.webProductImageRepository.remove(existingImage);
+      }
+
+      // Create new image entity
+      const newImage = new WebProductImage();
+      newImage.product_id = product.num;
+      newImage.sku = product.sku;
+      newImage.position = position;
+      newImage.alt = product.sku;
+      newImage.width = 1800;
+      newImage.height = 1800;
+      newImage.status = 1;
+
+      // Upload the new image to Cloudflare
+      const uploadResult =
+        await this.externalApiService.uploadBatchImageFromFile(
+          file,
+          this.envService.cloudflareApiToken,
+          {
+            productId: product.num,
+            sku: product.sku,
+          },
+        );
+
+      if (!uploadResult.success) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to upload image to Cloudflare',
+            error: 'API_ERROR',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      const idCloudflare = uploadResult.result.id;
+      const srcCloudflare = `${this.envService.cloudflareImagePrefix}/${idCloudflare}`;
+
+      newImage.id_cloudflare = idCloudflare;
+      newImage.src_cloudflare = srcCloudflare;
+
+      // Save the new image
+      const savedImage = await this.webProductImageRepository.save(newImage);
+
+      // If this is the main image (position 1), update the product's images_url
+      if (position === 1) {
+        product.images_url = srcCloudflare;
+        await this.webProductRepository.save(product);
+
+        this.logger.log(`Updated main image (position 1) for product ${sku}`);
+      }
+
+      // Update product in Instaleap with all images
+      try {
+        // Find all images for the product
+        const images = await this.webProductImageRepository.find({
+          where: {
+            product_id: product.num,
+            status: 1,
+          },
+          order: { position: 'ASC' },
+        });
+
+        if (images.length > 0) {
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: images.map((img) => `${img.src_cloudflare}/base`),
+          });
+
+          this.logger.log(
+            `Product ${product.sku} updated with new images in Instaleap by ${username}`,
+          );
+        }
+      } catch (instaleapError) {
+        this.logger.error(
+          `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+          instaleapError.stack,
+        );
+        // Continue with the process even if Instaleap update fails
+      }
+
+      // Commit the transaction
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: `Image at position ${position} updated successfully`,
+        imageId: savedImage.id,
+        position,
+        url: `${newImage.src_cloudflare}/base`,
+      };
+    } catch (error) {
+      // Rollback the transaction in case of error
+      await queryRunner.rollbackTransaction();
+
+      this.logger.error(
+        `Error updating image for SKU ${sku} at position ${position}: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to update image: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Release the query runner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Delete a product image at a specific position
+   * @param sku Product SKU
+   * @param position Position of the image to delete
+   * @param username Username of the user deleting the image
+   * @returns Object with success status and message
+   */
+  async deleteProductImage(
+    sku: string,
+    position: number,
+    username: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    // Start a transaction
+    const queryRunner =
+      this.webProductRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the product by SKU
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.log(
+        `Deleting image at position ${position} for product ${sku} by ${username}`,
+      );
+
+      // Check if an image exists at this position
+      const imageToDelete = await this.webProductImageRepository.findOne({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          position,
+        },
+      });
+
+      if (!imageToDelete) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `No image found at position ${position} for product ${sku}`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Delete the image from Cloudflare if it has an ID
+      if (imageToDelete.id_cloudflare) {
+        try {
+          // Delete from Cloudflare
+          await this.externalApiService.deleteImage(
+            imageToDelete.id_cloudflare,
+          );
+          this.logger.log(
+            `Deleted image from Cloudflare (ID: ${imageToDelete.id_cloudflare})`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to delete image from Cloudflare: ${error.message}`,
+            error.stack,
+          );
+          // Continue with the deletion even if Cloudflare deletion fails
+        }
+      }
+
+      // Delete the image record from the database
+      await this.webProductImageRepository.remove(imageToDelete);
+
+      // If the deleted image was the main image (position 1), update the product's images_url
+      if (position === 1) {
+        // Find the next available image to use as the main image
+        const nextMainImage = await this.webProductImageRepository.findOne({
+          where: {
+            product_id: product.num,
+            status: 1,
+          },
+          order: { position: 'ASC' },
+        });
+
+        if (nextMainImage) {
+          product.images_url = nextMainImage.src_cloudflare;
+        } else {
+          product.images_url = null; // No images left
+        }
+
+        await this.webProductRepository.save(product);
+        this.logger.log(`Updated main image reference for product ${sku}`);
+      }
+
+      // Reindex remaining images to ensure consistent positions
+      const remainingImages = await this.webProductImageRepository.find({
+        where: {
+          product_id: product.num,
+          status: 1,
+        },
+        order: { position: 'ASC' },
+      });
+
+      // Reindex positions if there are remaining images
+      if (remainingImages.length > 0) {
+        let newPosition = 1;
+        for (const img of remainingImages) {
+          if (img.position !== newPosition) {
+            img.position = newPosition;
+            await this.webProductImageRepository.save(img);
+          }
+          newPosition++;
+        }
+        this.logger.log(
+          `Reindexed positions for remaining ${remainingImages.length} images`,
+        );
+      }
+
+      // Update product in Instaleap with remaining images
+      try {
+        if (remainingImages.length > 0) {
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: remainingImages.map(
+              (img) => `${img.src_cloudflare}/base`,
+            ),
+          });
+        } else {
+          // No images left, update with empty array
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: [],
+          });
+        }
+
+        this.logger.log(
+          `Product ${product.sku} updated in Instaleap after image deletion by ${username}`,
+        );
+      } catch (instaleapError) {
+        this.logger.error(
+          `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+          instaleapError.stack,
+        );
+        // Continue with the process even if Instaleap update fails
+      }
+
+      // Commit the transaction
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: `Image at position ${position} deleted successfully`,
+      };
+    } catch (error) {
+      // Rollback the transaction in case of error
+      await queryRunner.rollbackTransaction();
+
+      this.logger.error(
+        `Error deleting image for SKU ${sku} at position ${position}: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to delete image: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Release the query runner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Delete multiple product images at specific positions
+   * @param sku Product SKU
+   * @param positions Array of positions of the images to delete
+   * @param username Username of the user deleting the images
+   * @returns Object with success status and message
+   */
+  async deleteProductImages(
+    sku: string,
+    positions: number[],
+    username: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    deletedCount: number;
+    failedPositions?: number[];
+  }> {
+    // Start a transaction
+    const queryRunner =
+      this.webProductRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the product by SKU
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.log(
+        `Batch deleting ${positions.length} images for product ${sku} by ${username}`,
+      );
+
+      // Track deletion results
+      const failedPositions: number[] = [];
+      let successCount = 0;
+
+      // Sort positions in descending order to avoid reindexing issues
+      // (deleting higher positions first won't affect lower positions)
+      const sortedPositions = [...positions].sort((a, b) => b - a);
+
+      // Process each position
+      for (const position of sortedPositions) {
+        try {
+          // Check if an image exists at this position
+          const imageToDelete = await this.webProductImageRepository.findOne({
+            where: {
+              product_id: product.num,
+              sku: product.sku,
+              position,
+            },
+          });
+
+          if (!imageToDelete) {
+            this.logger.warn(
+              `No image found at position ${position} for product ${sku}`,
+            );
+            failedPositions.push(position);
+            continue;
+          }
+
+          // Delete the image from Cloudflare if it has an ID
+          if (imageToDelete.id_cloudflare) {
+            try {
+              // Delete from Cloudflare
+              await this.externalApiService.deleteImage(
+                imageToDelete.id_cloudflare,
+              );
+              this.logger.log(
+                `Deleted image from Cloudflare (ID: ${imageToDelete.id_cloudflare})`,
+              );
+            } catch (error) {
+              this.logger.error(
+                `Failed to delete image from Cloudflare: ${error.message}`,
+                error.stack,
+              );
+              // Continue with the deletion even if Cloudflare deletion fails
+            }
+          }
+
+          // Delete the image record from the database
+          await this.webProductImageRepository.remove(imageToDelete);
+          successCount++;
+        } catch (positionError) {
+          this.logger.error(
+            `Error deleting image at position ${position}: ${positionError.message}`,
+            positionError.stack,
+          );
+          failedPositions.push(position);
+        }
+      }
+
+      // After all deletions, check if position 1 was deleted and update main image if needed
+      if (positions.includes(1)) {
+        // Find the next available image to use as the main image
+        const nextMainImage = await this.webProductImageRepository.findOne({
+          where: {
+            product_id: product.num,
+            status: 1,
+          },
+          order: { position: 'ASC' },
+        });
+
+        if (nextMainImage) {
+          product.images_url = nextMainImage.src_cloudflare;
+        } else {
+          product.images_url = null; // No images left
+        }
+
+        await this.webProductRepository.save(product);
+        this.logger.log(`Updated main image reference for product ${sku}`);
+      }
+
+      // Reindex remaining images to ensure consistent positions
+      const remainingImages = await this.webProductImageRepository.find({
+        where: {
+          product_id: product.num,
+          status: 1,
+        },
+        order: { position: 'ASC' },
+      });
+
+      // Reindex positions if there are remaining images
+      if (remainingImages.length > 0) {
+        let newPosition = 1;
+        for (const img of remainingImages) {
+          if (img.position !== newPosition) {
+            img.position = newPosition;
+            await this.webProductImageRepository.save(img);
+          }
+          newPosition++;
+        }
+        this.logger.log(
+          `Reindexed positions for remaining ${remainingImages.length} images`,
+        );
+      }
+
+      // Update product in Instaleap with remaining images
+      try {
+        if (remainingImages.length > 0) {
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: remainingImages.map(
+              (img) => `${img.src_cloudflare}/base`,
+            ),
+          });
+        } else {
+          // No images left, update with empty array
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            photosUrl: [],
+          });
+        }
+
+        this.logger.log(
+          `Product ${product.sku} updated in Instaleap after batch image deletion by ${username}`,
+        );
+      } catch (instaleapError) {
+        this.logger.error(
+          `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+          instaleapError.stack,
+        );
+        // Continue with the process even if Instaleap update fails
+      }
+
+      // Commit the transaction
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: `Successfully deleted ${successCount} of ${positions.length} images`,
+        deletedCount: successCount,
+        failedPositions:
+          failedPositions.length > 0 ? failedPositions : undefined,
+      };
+    } catch (error) {
+      // Rollback the transaction in case of error
+      await queryRunner.rollbackTransaction();
+
+      this.logger.error(
+        `Error deleting images for SKU ${sku}: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to delete images: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Release the query runner
+      await queryRunner.release();
+    }
+  }
 }

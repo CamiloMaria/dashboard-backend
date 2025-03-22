@@ -416,22 +416,22 @@ export class ExternalApiService {
   }
 
   /**
-   * Upload an image to Cloudflare Images using batch API
+   * Upload an image to Cloudflare Images API
    * @param file The file to upload
-   * @param batchToken Optional batch token for making multiple uploads with the same token
+   * @param token Optional token for authentication (can be batch token or regular API token)
    * @param metadata Optional metadata to attach to the image
    * @param requireSignedURLs Whether to require signed URLs for the image
    * @returns The response from Cloudflare Images API
    */
   async uploadBatchImageFromFile(
     file: Express.Multer.File,
-    batchToken?: string,
+    token?: string,
     metadata?: object,
     requireSignedURLs: boolean = false,
   ): Promise<CloudflareResponse> {
     try {
-      // Get batch token if not provided
-      const token = batchToken || (await this.getBatchToken());
+      // Use provided token or default to cloudflare API token
+      const authToken = token || this.cloudflareApiToken;
 
       const formData = new FormData();
 
@@ -450,7 +450,7 @@ export class ExternalApiService {
           formData,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${authToken}`,
               'Content-Type': 'multipart/form-data',
             },
           },
@@ -484,6 +484,7 @@ export class ExternalApiService {
       );
     }
   }
+
   /**
    * Gets a batch token from Cloudflare Images API
    * @returns A batch token for uploading multiple images
