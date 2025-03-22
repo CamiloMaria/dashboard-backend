@@ -170,6 +170,14 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.CHAT_GPT_BASE_URL);
   }
 
+  get instaleapApiKey(): string {
+    return this.configService.get<string>(ConfigKeys.INSTALEAP_API_KEY);
+  }
+
+  get instaleapBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.INSTALEAP_BASE_URL);
+  }
+
   // Helper methods for database connection configs
   getShopDatabaseConfig(): MysqlConnectionOptions {
     return {

@@ -2,7 +2,6 @@ import {
   Injectable,
   Logger,
   UnauthorizedException,
-  InternalServerErrorException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -18,8 +17,16 @@ import {
   UpdateCatalogInstaleap,
   CreateCatalogInstaleap,
   UpdateProductInstaleap,
+  CreateProductInstaleapResponse,
+  CreateProductInstaleap,
+  CreateBatchProductInstaleap,
+  BatchInstaleapResponse,
+  UpdateBatchProductInstaleap,
+  CreateBatchCatalogInstaleap,
+  UpdateBatchCatalogInstaleap,
 } from '../interfaces';
 import { CloudflareResponse } from '../interfaces/cloudflare-api.interface';
+import { getQueryStringParameters } from '../utils/string.utils';
 
 @Injectable()
 export class ExternalApiService {
@@ -35,6 +42,10 @@ export class ExternalApiService {
 
   private readonly chatGptUrl: string;
   private readonly chatGptApiKey: string;
+
+  private readonly instaleapBaseUrl: string;
+  private readonly instaleapApiKey: string;
+
   private readonly DEFAULT_GPT_MODEL = 'gpt-4o-mini';
   private readonly DEFAULT_MAX_TOKENS = 500;
   private readonly DEFAULT_TEMPERATURE = 0.7;
@@ -53,20 +64,8 @@ export class ExternalApiService {
     this.cloudflareBaseUrl = this.envService.cloudflareBaseUrl;
     this.cloudflareAccountId = this.envService.cloudflareAccountId;
     this.cloudflareApiToken = this.envService.cloudflareApiToken;
-  }
-
-  /**
-   * Validates user credentials against the external intranet API
-   * @param username User's username
-   * @param password User's password
-   * @returns User data from external API if authentication succeeds
-   * @throws UnauthorizedException if credentials are invalid
-   * @throws InternalServerErrorException if API connection fails
-   */
-  private getQueryStringParameters(obj: any) {
-    return Object.keys(obj)
-      .map((key) => key + '=' + obj[key])
-      .join('&');
+    this.instaleapBaseUrl = this.envService.instaleapBaseUrl;
+    this.instaleapApiKey = this.envService.instaleapApiKey;
   }
 
   /**
@@ -84,7 +83,7 @@ export class ExternalApiService {
     try {
       const url = `${this.intranetApiBaseUrl}/auth_ctrl/login`;
 
-      const body = this.getQueryStringParameters({
+      const body = getQueryStringParameters({
         usuario: username,
         password,
       });
@@ -113,9 +112,13 @@ export class ExternalApiService {
         error.stack,
       );
 
-      throw new InternalServerErrorException(
-        'Error connecting to authentication service',
-        { cause: error },
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to validate user',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
       );
     }
   }
@@ -256,6 +259,84 @@ export class ExternalApiService {
   /**
    * Create product in Instaleap
    * @param product The product data to create in Instaleap
+   * @returns true if the product was created successfully, false otherwise
+   * @throws HttpException if the API call fails
+   */
+  async createProductInstaleap(
+    product: CreateProductInstaleap,
+  ): Promise<boolean> {
+    try {
+      const url = `${this.instaleapBaseUrl}/product/products`;
+
+      const response = await firstValueFrom(
+        this.httpService.post<CreateProductInstaleapResponse>(url, product, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
+
+      return response.status === 201;
+    } catch (error) {
+      this.logger.error(
+        `Error creating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Create product in Instaleap
+   * @param product The product data to create in Instaleap
+   * @returns true if the product was created successfully, false otherwise
+   * @throws HttpException if the API call fails
+   */
+  async createProductInstaleapBatch(
+    body: CreateBatchProductInstaleap,
+  ): Promise<boolean> {
+    try {
+      const url = `${this.instaleapBaseUrl}/product/products/batch`;
+
+      const response = await firstValueFrom(
+        this.httpService.post<BatchInstaleapResponse>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
+
+      return response.status === 201;
+    } catch (error) {
+      this.logger.error(
+        `Error creating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create product in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Create product in Instaleap by Sku
+   * @param sku The product SKU to create in Instaleap
    * @throws HttpException if the API call fails
    */
   async createProductInstaleapBySku(sku: string): Promise<boolean> {
@@ -285,8 +366,8 @@ export class ExternalApiService {
   }
 
   /**
-   * Create product in Instaleap
-   * @param product The product data to create in Instaleap
+   * Create product in Instaleap by SKU batch
+   * @param skus The product SKUs to create in Instaleap
    * @throws HttpException if the API call fails
    */
   async createProductInstaleapBySkuBatch(skus: string[]): Promise<boolean> {
@@ -326,11 +407,18 @@ export class ExternalApiService {
     product: UpdateProductInstaleap,
   ): Promise<boolean | null> {
     try {
-      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/products/sku/${sku}`;
+      const url = `${this.instaleapBaseUrl}/product/products/sku/${sku}`;
 
-      const response = await firstValueFrom(this.httpService.put(url, product));
+      const response = await firstValueFrom(
+        this.httpService.put<void>(url, product, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
 
-      return response.status === 200;
+      return response.status === 200 || response.status === 204;
     } catch (error) {
       // Skip specific status codes
       if (error.response?.status === 409 || error.response?.status === 404) {
@@ -358,17 +446,63 @@ export class ExternalApiService {
   }
 
   /**
+   * Update product in Instaleap
+   * @param sku The product SKU to update
+   * @param product The product data to update in Instaleap
+   * @returns null if operation fails or has specific status codes, true if successful
+   */
+  async updateProductInstaleapBatch(
+    body: UpdateBatchProductInstaleap,
+  ): Promise<boolean | null> {
+    try {
+      const url = `${this.instaleapBaseUrl}/product/products/batch`;
+
+      const response = await firstValueFrom(
+        this.httpService.put<BatchInstaleapResponse>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
+
+      return response.status === 201;
+    } catch (error) {
+      this.logger.error(
+        `Error updating product in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update product in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
    * Create catalog in Instaleap
    * @param body The catalog data to create in Instaleap
    * @returns The response from Instaleap or null if the operation fails
    */
   async createCatalogInInstaleap(body: CreateCatalogInstaleap) {
     try {
-      const url = `${this.eCommerceInstaleapApiBaseUrl}/catalog/catalogs`;
+      const url = `${this.instaleapBaseUrl}/catalog/catalogs`;
 
-      const response = await firstValueFrom(this.httpService.post(url, body));
+      const response = await firstValueFrom(
+        this.httpService.post<void>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
 
-      return response.status === 200;
+      return response.status === 200 || response.status === 201;
     } catch (error) {
       // Skip 409 errors as they indicate the catalog is already up to date
       if (error.response?.status === 409) {
@@ -380,7 +514,50 @@ export class ExternalApiService {
         error.stack,
       );
 
-      return null;
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create catalog in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Create catalog in Instaleap batch
+   * @param body The catalog data to create in Instaleap
+   * @returns The response from Instaleap or null if the operation fails
+   */
+  async createCatalogInInstaleapBatch(body: CreateBatchCatalogInstaleap) {
+    try {
+      const url = `${this.instaleapBaseUrl}/catalog/catalogs/batch`;
+
+      const response = await firstValueFrom(
+        this.httpService.post<BatchInstaleapResponse>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
+
+      return response.status === 200;
+    } catch (error) {
+      this.logger.error(
+        `Error creating catalog in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to create catalog in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
@@ -395,9 +572,16 @@ export class ExternalApiService {
     body: UpdateCatalogInstaleap,
   ) {
     try {
-      const url = `${this.eCommerceInstaleapApiBaseUrl}/catalog/catalogs/sku/${params.sku}/storeReference/${params.storeReference}`;
+      const url = `${this.instaleapBaseUrl}/catalog/catalogs/sku/${params.sku}/storeReference/${params.storeReference}`;
 
-      const response = await firstValueFrom(this.httpService.put(url, body));
+      const response = await firstValueFrom(
+        this.httpService.put<void>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
 
       return response.status === 200 || response.status === 204;
     } catch (error) {
@@ -411,7 +595,50 @@ export class ExternalApiService {
         error.stack,
       );
 
-      return null;
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update catalog in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Update catalog in Instaleap batch
+   * @param body The catalog data to update in Instaleap
+   * @returns The response from Instaleap or null if the operation fails
+   */
+  async updateCatalogInInstaleapBatch(body: UpdateBatchCatalogInstaleap) {
+    try {
+      const url = `${this.instaleapBaseUrl}/catalog/catalogs/batch`;
+
+      const response = await firstValueFrom(
+        this.httpService.put<BatchInstaleapResponse>(url, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.instaleapApiKey}`,
+          },
+        }),
+      );
+
+      return response.status === 200;
+    } catch (error) {
+      this.logger.error(
+        `Error updating catalog in Instaleap: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update catalog in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 

@@ -29,3 +29,14 @@ export function trimOrNull(value: string | null | undefined): string | null {
   const trimmed = sanitizeString(value);
   return trimmed === '' ? null : trimmed;
 }
+
+/**
+ * Converts an object to a query string
+ * @param obj Object to convert
+ * @returns Query string
+ */
+export function getQueryStringParameters(obj: any) {
+  return Object.keys(obj)
+    .map((key) => key + '=' + obj[key])
+    .join('&');
+}

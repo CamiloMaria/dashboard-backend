@@ -33,6 +33,15 @@ export interface CreateProductInstaleap {
   weight?: number;
   volume?: number;
 }
+
+/**
+ * Interface for creating a product in Instaleap response
+ */
+export interface CreateProductInstaleapResponse extends CreateProductInstaleap {
+  id: string;
+  self: string;
+}
+
 /**
  * Interface for creating a batch of products in Instaleap
  */
@@ -155,4 +164,11 @@ export interface UpdateBatchCatalogInstaleap {
     sku: string;
     storeReference: string;
   })[];
+}
+
+/**
+ * Interface for a batch response in Instaleap
+ */
+export interface BatchInstaleapResponse {
+  jobReportId: string;
 }
