@@ -11,6 +11,7 @@ import {
   Request,
   HttpCode,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -43,6 +44,7 @@ import {
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
 import { ProductPatchDto } from '../dto/product-update.dto';
+import { ProductDeleteDto } from '../dto/product-delete.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -413,6 +415,83 @@ export class ProductController {
         {
           success: false,
           message: error.message || 'Failed to update product',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a product and its related data' })
+  @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
+  @ApiBody({ type: ProductDeleteDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product deleted successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product not found',
+    type: BaseResponse<null>,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse<null>,
+  })
+  async deleteProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() deleteDto: ProductDeleteDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      const result = await this.productService.deleteProduct(
+        id,
+        deleteDto.comment,
+        username,
+      );
+
+      return this.responseService.success(
+        result,
+        'Product deletion processed',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to delete product',
           error: error.message,
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,

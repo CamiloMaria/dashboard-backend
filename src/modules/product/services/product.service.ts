@@ -22,6 +22,9 @@ import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
 import { ProductPatchDto } from '../dto/product-update.dto';
 import { WebCatalog } from '../entities/shop/web-catalog.entity';
+import { WebProductRemoved } from '../entities/shop/web-product-removed.entity';
+import { WebProductImage } from '../entities/shop/web-product-image.entity';
+
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
@@ -33,6 +36,10 @@ export class ProductService {
     private readonly webProductGroupRepository: Repository<WebProductGroup>,
     @InjectRepository(WebCatalog, DatabaseConnection.SHOP)
     private readonly webCatalogRepository: Repository<WebCatalog>,
+    @InjectRepository(WebProductImage, DatabaseConnection.SHOP)
+    private readonly webProductImageRepository: Repository<WebProductImage>,
+    @InjectRepository(WebProductRemoved, DatabaseConnection.SHOP)
+    private readonly webProductRemovedRepository: Repository<WebProductRemoved>,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly logger: LoggerService,
@@ -684,6 +691,143 @@ export class ProductService {
         {
           success: false,
           message: `Failed to update product with ID ${productId}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Delete a product and its related data
+   * @param productId The ID of the product to delete
+   * @param comment Optional comment for deletion reason
+   * @param username The username of the user performing the deletion
+   * @returns Object with success status and message
+   */
+  async deleteProduct(
+    productId: number,
+    comment: string,
+    username: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Start a transaction to ensure all operations succeed or fail together
+      const queryRunner =
+        this.webProductRepository.manager.connection.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // Find the product with its relationships
+        const product = await this.webProductRepository.findOne({
+          where: { num: productId },
+          relations: ['catalogs', 'images'],
+        });
+
+        if (!product) {
+          throw new HttpException(
+            {
+              success: false,
+              message: `Product with ID ${productId} not found`,
+              error: 'NOT_FOUND',
+            },
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // Create a backup in web_products_removed
+        const removedProduct = new WebProductRemoved();
+        removedProduct.sku = product.sku;
+        removedProduct.text = JSON.stringify(product);
+        removedProduct.user = username;
+        removedProduct.comment = comment;
+
+        await this.webProductRemovedRepository.save(removedProduct);
+
+        // Delete catalogs
+        if (product.catalogs && product.catalogs.length > 0) {
+          // Update all catalogs in Instaleap to inactive
+          for (const catalog of product.catalogs) {
+            try {
+              await this.externalApiService.updateCatalogInInstaleap(
+                {
+                  sku: catalog.sku,
+                  storeReference: catalog.pl,
+                },
+                {
+                  isActive: false,
+                },
+              );
+            } catch (error) {
+              // Log error but continue with deletion
+              this.logger.error(
+                `Failed to deactivate catalog ${catalog.sku}/${catalog.pl} in Instaleap: ${error.message}`,
+                error.stack,
+              );
+            }
+          }
+
+          // Delete all catalogs in the database
+          await this.webCatalogRepository.delete({ sku: product.sku });
+        }
+
+        // Delete product images
+        if (product.images && product.images.length > 0) {
+          await this.webProductImageRepository.delete({
+            product_id: product.num,
+          });
+        }
+
+        // Delete the product from Instaleap
+        try {
+          // There's no direct "isActive" field in UpdateProductInstaleap
+          // But we can update it with minimal information to indicate it's no longer active
+          // We'll set searchKeywords to indicate deletion
+          await this.externalApiService.updateProductInstaleap(product.sku, {
+            name: `[DELETED] ${product.title}`,
+            searchKeywords: 'deleted,removed,inactive',
+            boost: 9999,
+          });
+        } catch (error) {
+          // Log error but continue with deletion
+          this.logger.error(
+            `Failed to deactivate product ${product.sku} in Instaleap: ${error.message}`,
+            error.stack,
+          );
+        }
+
+        // Delete the product from the database
+        await this.webProductRepository.delete({ num: productId });
+
+        // Commit the transaction
+        await queryRunner.commitTransaction();
+
+        return {
+          success: true,
+          message: `Product ${product.sku} deleted successfully`,
+        };
+      } catch (error) {
+        // Rollback the transaction if anything fails
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        // Release the query runner
+        await queryRunner.release();
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Failed to delete product with ID ${productId}: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to delete product with ID ${productId}`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
