@@ -18,3 +18,5 @@ export * from './product-delete.dto';
 export * from './product-set-delete.dto';
 export * from './image-update.dto';
 export * from './image-delete-batch.dto';
+export * from './image-position-change.dto';
+export * from './image-reorder.dto';

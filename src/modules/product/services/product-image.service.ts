@@ -900,4 +900,250 @@ export class ProductImageService {
       await queryRunner.release();
     }
   }
+
+  /**
+   * Reorder product images by changing their positions
+   * @param sku Product SKU
+   * @param positionChanges Array of position changes
+   * @param username Username of the user performing the reordering
+   * @returns Object with success status and reordered positions
+   */
+  async reorderProductImages(
+    sku: string,
+    positionChanges: { currentPosition: number; newPosition: number }[],
+    username: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    reorderedPositions: {
+      imageId: number;
+      oldPosition: number;
+      newPosition: number;
+    }[];
+  }> {
+    // Start a transaction
+    const queryRunner =
+      this.webProductRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the product by SKU
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.log(
+        `Reordering ${positionChanges.length} image positions for product ${sku} by ${username}`,
+      );
+
+      // Fetch all product images to validate positions
+      const existingImages = await this.webProductImageRepository.find({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          status: 1,
+        },
+        order: { position: 'ASC' },
+      });
+
+      if (existingImages.length === 0) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product ${sku} has no images to reorder`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Validate that all current positions exist
+      const existingPositions = existingImages.map((img) => img.position);
+
+      for (const change of positionChanges) {
+        if (!existingPositions.includes(change.currentPosition)) {
+          throw new HttpException(
+            {
+              success: false,
+              message: `Position ${change.currentPosition} does not exist for product ${sku}`,
+              error: 'BAD_REQUEST',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        // Validate new positions are within range
+        if (
+          change.newPosition < 1 ||
+          change.newPosition > existingImages.length
+        ) {
+          throw new HttpException(
+            {
+              success: false,
+              message: `New position ${change.newPosition} is out of range (1-${existingImages.length})`,
+              error: 'BAD_REQUEST',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // Track reordered images for response
+      const reorderedPositions: {
+        imageId: number;
+        oldPosition: number;
+        newPosition: number;
+      }[] = [];
+
+      // Calculate position changes to avoid conflicts
+      // Use temporary positions (starting at 1000) to avoid conflicts during reordering
+      const TEMP_POSITION_START = 1000;
+
+      // First, move all affected images to temporary positions
+      for (let i = 0; i < positionChanges.length; i++) {
+        const change = positionChanges[i];
+        const tempPosition = TEMP_POSITION_START + i;
+
+        // Find the image to reorder
+        const imageToUpdate = existingImages.find(
+          (img) => img.position === change.currentPosition,
+        );
+
+        if (imageToUpdate) {
+          // Store original position for response
+          const oldPosition = imageToUpdate.position;
+
+          // Move to temporary position first
+          imageToUpdate.position = tempPosition;
+          await this.webProductImageRepository.save(imageToUpdate);
+
+          // Track for final move
+          reorderedPositions.push({
+            imageId: imageToUpdate.id,
+            oldPosition,
+            newPosition: change.newPosition,
+          });
+        }
+      }
+
+      // Then move all images to their final positions
+      for (const reorder of reorderedPositions) {
+        const imageToUpdate = await this.webProductImageRepository.findOne({
+          where: { id: reorder.imageId },
+        });
+
+        if (imageToUpdate) {
+          imageToUpdate.position = reorder.newPosition;
+          await this.webProductImageRepository.save(imageToUpdate);
+          this.logger.log(
+            `Moved image ID ${imageToUpdate.id} from position ${reorder.oldPosition} to ${reorder.newPosition}`,
+          );
+        }
+      }
+
+      // Check if the main image position (1) has changed, update the product's images_url if needed
+      const newMainImage = await this.webProductImageRepository.findOne({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          position: 1,
+          status: 1,
+        },
+      });
+
+      if (
+        newMainImage &&
+        (!product.images_url ||
+          product.images_url !== newMainImage.src_cloudflare)
+      ) {
+        product.images_url = newMainImage.src_cloudflare;
+        await this.webProductRepository.save(product);
+        this.logger.log(
+          `Updated main image reference for product ${sku} to image ID ${newMainImage.id}`,
+        );
+      }
+
+      // Reindex all positions to ensure consistency
+      const allImages = await this.webProductImageRepository.find({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          status: 1,
+        },
+        order: { position: 'ASC' },
+      });
+
+      // Fix any gaps in positions
+      let currentPosition = 1;
+      for (const img of allImages) {
+        if (img.position !== currentPosition) {
+          img.position = currentPosition;
+          await this.webProductImageRepository.save(img);
+        }
+        currentPosition++;
+      }
+
+      // Update product in Instaleap with reordered images
+      try {
+        await this.externalApiService.updateProductInstaleap(product.sku, {
+          photosUrl: allImages.map((img) => `${img.src_cloudflare}/base`),
+        });
+
+        this.logger.log(
+          `Product ${product.sku} updated in Instaleap after image reordering by ${username}`,
+        );
+      } catch (instaleapError) {
+        this.logger.error(
+          `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+          instaleapError.stack,
+        );
+        // Continue with the process even if Instaleap update fails
+      }
+
+      // Commit the transaction
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: `Successfully reordered ${reorderedPositions.length} image positions`,
+        reorderedPositions,
+      };
+    } catch (error) {
+      // Rollback the transaction in case of error
+      await queryRunner.rollbackTransaction();
+
+      this.logger.error(
+        `Error reordering images for SKU ${sku}: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to reorder images: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Release the query runner
+      await queryRunner.release();
+    }
+  }
 }

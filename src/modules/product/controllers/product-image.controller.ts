@@ -30,7 +30,7 @@ import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ResponseService } from 'src/common/services/response.service';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
-import { ImageDeleteBatchDto, ImageUpdateDto } from '../dto';
+import { ImageDeleteBatchDto, ImageReorderDto, ImageUpdateDto } from '../dto';
 
 @ApiTags('Products Images')
 @ApiBearerAuth()
@@ -457,6 +457,108 @@ export class ProductImageController {
         {
           success: false,
           message: 'Failed to delete image(s)',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('reorder')
+  @ApiOperation({
+    summary: 'Reorder product images',
+    description:
+      'Reorder product images by changing their positions. This endpoint handles multiple position changes in a single transaction, ensuring data consistency. If position 1 changes, the main product image reference will be updated automatically.',
+  })
+  @ApiBody({
+    type: ImageReorderDto,
+    description: 'Product SKU and array of position changes',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Images reordered successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+                reorderedPositions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      imageId: { type: 'number' },
+                      oldPosition: { type: 'number' },
+                      newPosition: { type: 'number' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or positions',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product or images not found',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async reorderImages(
+    @Body() reorderDto: ImageReorderDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      // Extract SKU and position changes from DTO
+      const { sku, positionChanges } = reorderDto;
+
+      // Call service to reorder the images
+      const result = await this.productImageService.reorderProductImages(
+        sku,
+        positionChanges,
+        username,
+      );
+
+      return this.responseService.success(
+        result,
+        'Images reordered successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to reorder images',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
