@@ -859,9 +859,7 @@ export class ProductService {
     },
     username: string,
   ): Promise<{
-    success: boolean;
-    message: string;
-    product?: any;
+    product?: ProductResponseDto;
     operations: {
       deletedImages?: {
         success: boolean;
@@ -1090,8 +1088,6 @@ export class ProductService {
       const updatedProduct = await this.findById(product.num);
 
       return {
-        success: true,
-        message: 'Product updated successfully',
         product: updatedProduct,
         operations: operationResults,
       };
