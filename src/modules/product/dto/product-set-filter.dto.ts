@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from './pagination-query.dto';
+import { Transform } from 'class-transformer';
 
 export enum SortField {
   CREATE_AT = 'create_at',
@@ -49,6 +50,14 @@ export class ProductSetFilterDto extends PaginationQueryDto {
   area?: string;
 
   @ApiProperty({
+    description: 'Search',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiProperty({
     description: 'Field to sort by',
     enum: SortField,
     default: SortField.UPDATE_AT,
@@ -66,5 +75,11 @@ export class ProductSetFilterDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsEnum(SortOrder)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toUpperCase();
+    }
+    return value;
+  })
   sortOrder?: SortOrder;
 }

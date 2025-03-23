@@ -6,20 +6,34 @@ import { ApiProperty } from '@nestjs/swagger';
 export class ProductSetItemDto {
   @ApiProperty({
     description: 'Product SKU',
-    example: '7460170355288',
+    example: 'P12345',
   })
   productSku: string;
 
   @ApiProperty({
-    description: 'Product title',
-    example: 'Kitchen Knife Set',
-    required: false,
-  })
-  title?: string;
-
-  @ApiProperty({
-    description: 'Whether the product is free as part of the set',
+    description: 'Whether the product is free in this set',
     example: false,
   })
   is_free: boolean;
+
+  @ApiProperty({
+    description: 'Product title',
+    example: 'Smartphone XYZ',
+    nullable: true,
+  })
+  title: string | null;
+
+  @ApiProperty({
+    description: 'Product price from catalog',
+    example: 199.99,
+    nullable: true,
+  })
+  price: number | null;
+
+  @ApiProperty({
+    description: 'Product compare price from catalog',
+    example: 249.99,
+    nullable: true,
+  })
+  compare_price: number | null;
 }

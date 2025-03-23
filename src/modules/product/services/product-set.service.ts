@@ -64,6 +64,7 @@ export class ProductSetService {
         productSku,
         title,
         area,
+        search,
         sortBy = SortField.UPDATE_AT,
         sortOrder = SortOrder.DESC,
       } = filterDto;
@@ -76,25 +77,41 @@ export class ProductSetService {
       const offset = (validPage - 1) * validLimit;
 
       // Build where conditions for search
-      const whereConditions: FindOptionsWhere<WebSetProducts> = {};
+      let whereConditions:
+        | FindOptionsWhere<WebSetProducts>
+        | FindOptionsWhere<WebSetProducts>[] = {};
 
-      // Add search filters if provided
-      if (setSku) {
-        whereConditions.set_sku = setSku;
-      }
+      if (search) {
+        whereConditions = [
+          { title: Like(`%${search}%`) },
+          { set_sku: Like(`%${search}%`) },
+          {
+            relations: {
+              product: {
+                sku: Like(`%${search}%`),
+              },
+            },
+          },
+        ];
+      } else {
+        // Add search filters if provided
+        if (setSku) {
+          whereConditions.set_sku = setSku;
+        }
 
-      if (productSku) {
-        whereConditions.relations = {
-          product: { sku: productSku },
-        };
-      }
+        if (productSku) {
+          whereConditions.relations = {
+            product: { sku: productSku },
+          };
+        }
 
-      if (title) {
-        whereConditions.title = Like(`%${title}%`);
-      }
+        if (title) {
+          whereConditions.title = Like(`%${title}%`);
+        }
 
-      if (area) {
-        whereConditions.area = Like(`%${area}%`);
+        if (area) {
+          whereConditions.area = Like(`%${area}%`);
+        }
       }
 
       // Get total count of product sets matching the search criteria
@@ -126,7 +143,11 @@ export class ProductSetService {
           create_at: true,
           update_at: true,
         },
-        relations: ['relations', 'relations.product'],
+        relations: [
+          'relations',
+          'relations.product',
+          'relations.product.catalogs',
+        ],
       });
 
       if (!productSets || productSets.length === 0) {
@@ -188,7 +209,11 @@ export class ProductSetService {
           create_at: true,
           update_at: true,
         },
-        relations: ['relations', 'relations.product'],
+        relations: [
+          'relations',
+          'relations.product',
+          'relations.product.catalogs',
+        ],
       });
 
       if (!productSet) {
@@ -227,7 +252,11 @@ export class ProductSetService {
     try {
       // Query product sets that contain the product with the given SKU
       const productSets = await this.productSetRepository.find({
-        relations: ['relations', 'relations.product'],
+        relations: [
+          'relations',
+          'relations.product',
+          'relations.product.catalogs',
+        ],
         where: {
           relations: {
             product: {

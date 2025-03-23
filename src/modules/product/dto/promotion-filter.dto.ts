@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { PaginationQueryDto } from './pagination-query.dto';
 
 export enum SortField {
@@ -69,5 +69,11 @@ export class PromotionFilterDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsEnum(SortOrder)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toUpperCase();
+    }
+    return value;
+  })
   sortOrder?: SortOrder;
 }

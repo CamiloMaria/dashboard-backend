@@ -49,6 +49,21 @@ export class ProductSetMapper {
       // Use trimOrNull to handle product title
       dto.title = relation.product ? trimOrNull(relation.product.title) : null;
 
+      // Get price and compare_price from catalog if available
+      if (
+        relation.product &&
+        relation.product.catalogs &&
+        relation.product.catalogs.length > 0
+      ) {
+        // Use the first catalog entry for pricing information
+        const catalog = relation.product.catalogs[0];
+        dto.price = catalog.price;
+        dto.compare_price = catalog.compare_price;
+      } else {
+        dto.price = null;
+        dto.compare_price = null;
+      }
+
       return dto;
     });
   }

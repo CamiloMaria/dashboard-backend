@@ -16,7 +16,7 @@ import { CommonModule } from './common/common.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // Time to live - 60 seconds (in milliseconds)
-        limit: 20, // 20 requests per ttl
+        limit: 50, // 50 requests per ttl
       },
     ]),
     ProductModule,
