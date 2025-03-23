@@ -2,6 +2,7 @@
  * Interface for creating a product in Instaleap
  */
 export interface CreateProductInstaleap {
+  sku: string;
   ean?: string[];
   name: string;
   unit: string;
@@ -21,6 +22,28 @@ export interface CreateProductInstaleap {
   }[];
   bigItems?: number;
   relatedProducts?: string[];
+  ingredients?: string[];
+  specifications?: {
+    title: string;
+    values: {
+      label: string;
+      value: string;
+    }[];
+  }[];
+  nutritionalDetailsInformation?: {
+    servingName: string;
+    servingSize: number;
+    servingUnit: string;
+    servingsPerPortion: number;
+    nutritionalTable: {
+      nutrientName: string;
+      quantity: number;
+      unit: string;
+      quantityPerPortion: number;
+      dailyValue: string;
+    }[];
+    bottomInfo: string;
+  };
   lots?: {
     availableLots: string[];
     isActive: boolean;
@@ -46,14 +69,17 @@ export interface CreateProductInstaleapResponse extends CreateProductInstaleap {
  * Interface for creating a batch of products in Instaleap
  */
 export interface CreateBatchProductInstaleap {
-  products: (CreateProductInstaleap & { sku: string })[];
+  products: CreateProductInstaleap[];
 }
 
 /**
  * Type for updating a product in Instaleap
- * All properties are optional
+ * All properties are optional except sku which is omitted
  */
-export type UpdateProductInstaleap = Partial<CreateProductInstaleap>;
+export type UpdateProductInstaleap = Omit<
+  Partial<CreateProductInstaleap>,
+  'sku'
+>;
 
 /**
  * Type for updating a batch of products in Instaleap

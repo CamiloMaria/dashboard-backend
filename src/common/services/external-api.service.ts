@@ -279,6 +279,12 @@ export class ExternalApiService {
 
       return response.status === 201;
     } catch (error) {
+      if (error.response?.status === 409) {
+        await this.updateProductInstaleap(product.sku, product);
+
+        return true;
+      }
+
       this.logger.error(
         `Error creating product in Instaleap: ${error.message}`,
         error.stack,
@@ -335,68 +341,6 @@ export class ExternalApiService {
   }
 
   /**
-   * Create product in Instaleap by Sku
-   * @param sku The product SKU to create in Instaleap
-   * @throws HttpException if the API call fails
-   */
-  async createProductInstaleapBySku(sku: string): Promise<boolean> {
-    try {
-      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-instaleap-by-sku`;
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, { sku }),
-      );
-
-      return response.status === 201 || response.status === 204;
-    } catch (error) {
-      this.logger.error(
-        `Error creating product in Instaleap: ${error.message}`,
-        error.stack,
-      );
-
-      throw new HttpException(
-        {
-          success: false,
-          message: 'Failed to create product in Instaleap',
-          error: error.message,
-        },
-        HttpStatus.BAD_GATEWAY,
-      );
-    }
-  }
-
-  /**
-   * Create product in Instaleap by SKU batch
-   * @param skus The product SKUs to create in Instaleap
-   * @throws HttpException if the API call fails
-   */
-  async createProductInstaleapBySkuBatch(skus: string[]): Promise<boolean> {
-    try {
-      const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-instaleap-by-sku/batch`;
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, { skus }),
-      );
-
-      return response.status === 201 || response.status === 204;
-    } catch (error) {
-      this.logger.error(
-        `Error creating product in Instaleap: ${error.message}`,
-        error.stack,
-      );
-
-      throw new HttpException(
-        {
-          success: false,
-          message: 'Failed to create product in Instaleap',
-          error: error.message,
-        },
-        HttpStatus.BAD_GATEWAY,
-      );
-    }
-  }
-
-  /**
    * Update product in Instaleap
    * @param sku The product SKU to update
    * @param product The product data to update in Instaleap
@@ -422,10 +366,6 @@ export class ExternalApiService {
     } catch (error) {
       // Skip specific status codes
       if (error.response?.status === 409 || error.response?.status === 404) {
-        return null;
-      } else if (error.response?.status === 400) {
-        // Try to create the product if update fails with 400
-        await this.createProductInstaleapBySku(sku);
         return null;
       }
 

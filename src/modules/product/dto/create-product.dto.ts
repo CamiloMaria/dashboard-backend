@@ -1,5 +1,6 @@
 import { IsArray, IsString, ArrayMinSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { WebProduct } from '../entities/shop';
 
 export class CreateProductsDto {
   @ApiProperty({
@@ -22,6 +23,7 @@ export enum ProductCreationStatus {
 
 export class CreateProductResultDto {
   sku: string;
+  product?: WebProduct;
   success: boolean;
   message: string;
   status: ProductCreationStatus;

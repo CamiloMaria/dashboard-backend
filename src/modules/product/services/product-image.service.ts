@@ -284,9 +284,47 @@ export class ProductImageService {
         });
 
         if (images.length > 0) {
-          await this.externalApiService.updateProductInstaleap(product.sku, {
-            photosUrl: images.map((img) => `${img.src_cloudflare}/base}`),
-          });
+          try {
+            await this.externalApiService.updateProductInstaleap(product.sku, {
+              photosUrl: images.map((img) => `${img.src_cloudflare}/base}`),
+            });
+          } catch (error) {
+            if (error.response?.status === 400) {
+              this.logger.error(
+                `Product ${product.sku} not found in Instaleap, creating it`,
+              );
+
+              const specifications: {
+                title: string;
+                description: string;
+              }[] = JSON.parse(product.specifications);
+              const specificationsArray = {
+                title: 'Detalles',
+                values: specifications.map((item: any) => ({
+                  label: item.title,
+                  value: item.description,
+                })),
+              };
+
+              await this.externalApiService.createProductInstaleap({
+                sku: product.sku,
+                name: product.title,
+                photosUrl: images.map((img) => `${img.src_cloudflare}/base}`),
+                ean: [product.sku],
+                unit: product.unmanejo,
+                clickMultiplier: product.click_multiplier,
+                description: product.description_instaleap,
+                searchKeywords: product.search_keywords,
+                specifications: [specificationsArray],
+                brand: product.brand,
+              });
+            } else {
+              this.logger.error(
+                `Failed to update product ${product.sku} in Instaleap: ${error.message}`,
+                error.stack,
+              );
+            }
+          }
 
           this.logger.log(
             `Product ${product.sku} updated with new image in Instaleap by ${username}`,

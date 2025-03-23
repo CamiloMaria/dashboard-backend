@@ -398,6 +398,7 @@ export class ProductService {
         if (existingProduct) {
           results.push({
             sku,
+            product: existingProduct,
             success: true,
             message: 'Product already exists',
             status: ProductCreationStatus.EXISTING,
@@ -442,6 +443,7 @@ export class ProductService {
 
         results.push({
           sku,
+          product: newProduct,
           success: true,
           message: `Product created successfully: ${newProduct.title}`,
           status: ProductCreationStatus.CREATED,
@@ -464,9 +466,45 @@ export class ProductService {
     // Create success products in Instaleap
     const successProducts = results.filter((result) => result.success);
     if (successProducts.length > 0) {
-      await this.externalApiService.createProductInstaleapBySkuBatch(
-        successProducts.map((product) => product.sku),
-      );
+      // Process products in batches of 1000
+      for (let i = 0; i < successProducts.length; i += 1000) {
+        const batchProducts = successProducts.slice(i, i + 1000);
+        const batchNumber = Math.floor(i / 1000) + 1;
+        const totalBatches = Math.ceil(successProducts.length / 1000);
+
+        this.logger.log(
+          `Processing batch ${batchNumber}/${totalBatches} with ${batchProducts.length} SKUs`,
+          ProductService.name,
+        );
+
+        await this.externalApiService.createProductInstaleapBatch({
+          products: batchProducts.map(({ product, sku }) => ({
+            sku,
+            name: product.title,
+            photosUrl: product.images.map(
+              (image) => `${image.src_cloudflare}/base}`,
+            ),
+            unit: product.unmanejo,
+            description: product.description_instaleap,
+            brand: product.brand,
+            searchKeywords: product.search_keywords,
+          })),
+        });
+
+        this.logger.log(
+          `Successfully created batch ${batchNumber}/${totalBatches} with ${batchProducts.length} products`,
+          ProductService.name,
+        );
+
+        // Add delay between batches if not the last batch
+        if (i + 1000 < successProducts.length) {
+          this.logger.debug(
+            `Waiting ${30} seconds before processing next batch`,
+            ProductService.name,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 30000));
+        }
+      }
     }
 
     return results;
