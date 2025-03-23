@@ -212,15 +212,14 @@ export class ProductImageService {
         newImage.height = 1800;
         newImage.status = 1;
 
-        const uploadResult =
-          await this.externalApiService.uploadBatchImageFromFile(
-            file,
-            batchToken,
-            {
-              productId: product.num,
-              sku: product.sku,
-            },
-          );
+        const uploadResult = await this.externalApiService.uploadImageFromFile(
+          file,
+          batchToken,
+          {
+            productId: product.num,
+            sku: product.sku,
+          },
+        );
 
         if (!uploadResult.success) {
           throw new HttpException(
@@ -398,15 +397,14 @@ export class ProductImageService {
       newImage.status = 1;
 
       // Upload the new image to Cloudflare
-      const uploadResult =
-        await this.externalApiService.uploadBatchImageFromFile(
-          file,
-          this.envService.cloudflareApiToken,
-          {
-            productId: product.num,
-            sku: product.sku,
-          },
-        );
+      const uploadResult = await this.externalApiService.uploadImageFromFile(
+        file,
+        this.envService.cloudflareApiToken,
+        {
+          productId: product.num,
+          sku: product.sku,
+        },
+      );
 
       if (!uploadResult.success) {
         throw new HttpException(
@@ -1144,6 +1142,172 @@ export class ProductImageService {
     } finally {
       // Release the query runner
       await queryRunner.release();
+    }
+  }
+
+  /**
+   * Process and upload a single image
+   * @param file The image file to upload
+   * @param sku Product SKU
+   * @param position Image position
+   * @param batchToken Batch token for Cloudflare upload
+   * @param username Username performing the upload
+   * @returns Result of the upload operation
+   */
+  async processAndUploadImage(
+    file: Express.Multer.File,
+    sku: string,
+    position: number,
+    username: string,
+  ): Promise<{
+    success: boolean;
+    imageId?: number;
+    url?: string;
+  }> {
+    try {
+      // Find the product
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Check if an image already exists at this position
+      const existingImage = await this.webProductImageRepository.findOne({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          position,
+        },
+      });
+
+      if (existingImage) {
+        // Delete existing image from Cloudflare if it has an ID
+        if (existingImage.id_cloudflare) {
+          try {
+            await this.externalApiService.deleteImage(
+              existingImage.id_cloudflare,
+            );
+            this.logger.log(
+              `Deleted existing image from Cloudflare: ${existingImage.id_cloudflare}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to delete image from Cloudflare: ${error.message}`,
+              error.stack,
+            );
+            // Continue with the upload even if Cloudflare deletion fails
+          }
+        }
+
+        // Remove the existing image from the database
+        await this.webProductImageRepository.remove(existingImage);
+      }
+
+      // Upload image to Cloudflare
+      const cloudflareResponse =
+        await this.externalApiService.uploadImageFromFile(
+          file,
+          this.envService.cloudflareApiToken,
+          { product_id: product.num, sku: product.sku, position },
+        );
+
+      if (!cloudflareResponse.success) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to upload image to Cloudflare',
+            error: 'UPLOAD_ERROR',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      const imageUrl = `${cloudflareResponse.result.variants[0]}`;
+
+      // Create a new product image entity
+      const newImage = this.webProductImageRepository.create({
+        product_id: product.num,
+        sku: product.sku,
+        src_cloudflare: imageUrl,
+        id_cloudflare: cloudflareResponse.result.id,
+        width: 1800,
+        height: 1800,
+        status: 1,
+        position,
+      });
+
+      // Save the new image
+      const savedImage = await this.webProductImageRepository.save(newImage);
+
+      // If this is the main image (position 1), update the product's images_url
+      if (position === 1) {
+        product.images_url = imageUrl;
+        await this.webProductRepository.save(product);
+      }
+
+      this.logger.log(
+        `Image for product ${sku} uploaded successfully by ${username}, position: ${position}, ID: ${savedImage.id}`,
+      );
+
+      // Get all product images after this update
+      const allImages = await this.webProductImageRepository.find({
+        where: {
+          product_id: product.num,
+          sku: product.sku,
+          status: 1,
+        },
+      });
+
+      // Update product in Instaleap with new images
+      try {
+        await this.externalApiService.updateProductInstaleap(product.sku, {
+          photosUrl: allImages.map((img) => `${img.src_cloudflare}/base`),
+        });
+
+        this.logger.log(
+          `Product ${product.sku} updated in Instaleap with new images by ${username}`,
+        );
+      } catch (instaleapError) {
+        this.logger.error(
+          `Failed to update product ${product.sku} in Instaleap: ${instaleapError.message}`,
+          instaleapError.stack,
+        );
+        // Continue with the process even if Instaleap update fails
+      }
+
+      return {
+        success: true,
+        imageId: savedImage.id,
+        url: imageUrl,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error processing and uploading image for SKU ${sku} at position ${position}: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to process and upload image: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

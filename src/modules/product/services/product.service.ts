@@ -20,10 +20,13 @@ import {
 import { LoggerService } from 'src/config';
 import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
-import { ProductPatchDto } from '../dto/product-update.dto';
+import { ProductPatchDto, ProductUpdateDto } from '../dto/product-update.dto';
 import { WebCatalog } from '../entities/shop/web-catalog.entity';
 import { WebProductRemoved } from '../entities/shop/web-product-removed.entity';
 import { WebProductImage } from '../entities/shop/web-product-image.entity';
+import { DataSource } from 'typeorm';
+import { ModuleRef } from '@nestjs/core';
+import { ProductImageService } from './product-image.service';
 
 @Injectable()
 export class ProductService {
@@ -43,6 +46,8 @@ export class ProductService {
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly logger: LoggerService,
+    private readonly dataSource: DataSource,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   /**
@@ -828,6 +833,327 @@ export class ProductService {
         {
           success: false,
           message: `Failed to delete product with ID ${productId}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Process atomic product update with multiple operations in a single transaction
+   * @param sku The SKU of the product to update
+   * @param updateData The update data containing product metadata and image operations
+   * @param username The username performing the update
+   * @returns The updated product with operation results
+   */
+  async atomicProductUpdate(
+    sku: string,
+    updateData: {
+      product?: ProductUpdateDto;
+      images?: {
+        delete?: number[];
+        add?: { position: number; file: Express.Multer.File }[];
+        reorder?: { currentPosition: number; newPosition: number }[];
+      };
+    },
+    username: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    product?: any;
+    operations: {
+      deletedImages?: {
+        success: boolean;
+        count: number;
+        failedPositions?: number[];
+      };
+      addedImages?: {
+        success: boolean;
+        count: number;
+        failedPositions?: number[];
+      };
+      reorderedImages?: { success: boolean; count: number };
+      productUpdate?: { success: boolean };
+    };
+  }> {
+    this.logger.log(
+      `Starting atomic product update for product SKU ${sku} by ${username}`,
+    );
+
+    // Start a database transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the product first to make sure it exists
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.log(
+        `Processing atomic update for product ${product.sku} (ID: ${product.num})`,
+      );
+
+      // Initialize results object
+      const operationResults = {
+        deletedImages: undefined,
+        addedImages: undefined,
+        reorderedImages: undefined,
+        productUpdate: undefined,
+      };
+
+      const productImageService = this.moduleRef.get(ProductImageService, {
+        strict: false,
+      });
+
+      // 1. Process image deletions first
+      if (updateData.images?.delete?.length) {
+        this.logger.log(`Deleting ${updateData.images.delete.length} images`);
+
+        try {
+          const deleteResult = await productImageService.deleteProductImages(
+            product.sku,
+            updateData.images.delete,
+            username,
+          );
+
+          operationResults.deletedImages = {
+            success: deleteResult.success,
+            count: deleteResult.deletedCount,
+            failedPositions: deleteResult.failedPositions,
+          };
+        } catch (error) {
+          this.logger.error(
+            `Error deleting images: ${error.message}`,
+            error.stack,
+          );
+
+          operationResults.deletedImages = {
+            success: false,
+            count: 0,
+            failedPositions: updateData.images.delete,
+          };
+
+          // Don't throw here, continue with other operations
+        }
+      }
+
+      // 2. Process new image uploads
+      if (updateData.images?.add?.length) {
+        this.logger.log(`Adding ${updateData.images.add.length} new images`);
+
+        const addResults = {
+          success: true,
+          count: 0,
+          failedPositions: [],
+        };
+
+        for (const add of updateData.images.add) {
+          try {
+            // Prepare the file for processing
+            // Add position to filename for easier identification
+            const originalName = add.file.originalname;
+            const positionPrefix = `position_${add.position}_`;
+
+            if (!originalName.startsWith(positionPrefix)) {
+              add.file.originalname = `${positionPrefix}${originalName}`;
+            }
+
+            // Extract SKU from filename or use product SKU
+            const skuMatch = originalName.match(/[0-9]{9,13}/);
+            const sku = skuMatch ? skuMatch[0] : product.sku;
+
+            // Process and upload the image
+            const result = await productImageService.processAndUploadImage(
+              add.file,
+              sku,
+              add.position,
+              username,
+            );
+
+            if (result.success) {
+              addResults.count++;
+            } else {
+              addResults.failedPositions.push(add.position);
+              addResults.success = false;
+            }
+          } catch (error) {
+            this.logger.error(
+              `Error adding image at position ${add.position}: ${error.message}`,
+              error.stack,
+            );
+            addResults.failedPositions.push(add.position);
+            addResults.success = false;
+          }
+        }
+
+        operationResults.addedImages = {
+          success: addResults.success,
+          count: addResults.count,
+          failedPositions:
+            addResults.failedPositions.length > 0
+              ? addResults.failedPositions
+              : undefined,
+        };
+      }
+
+      // 3. Process image reordering
+      if (updateData.images?.reorder?.length) {
+        this.logger.log(
+          `Reordering ${updateData.images.reorder.length} images`,
+        );
+
+        try {
+          const reorderResult = await productImageService.reorderProductImages(
+            product.sku,
+            updateData.images.reorder,
+            username,
+          );
+
+          operationResults.reorderedImages = {
+            success: reorderResult.success,
+            count: reorderResult.reorderedPositions.length,
+          };
+        } catch (error) {
+          this.logger.error(
+            `Error reordering images: ${error.message}`,
+            error.stack,
+          );
+
+          operationResults.reorderedImages = {
+            success: false,
+            count: 0,
+          };
+        }
+      }
+
+      // 4. Process product metadata updates
+      if (updateData.product) {
+        this.logger.log(`Updating product metadata`);
+
+        try {
+          await this.updateProduct(
+            product.num,
+            {
+              product: updateData.product,
+            },
+            username,
+          );
+
+          operationResults.productUpdate = { success: true };
+        } catch (error) {
+          this.logger.error(
+            `Error updating product metadata: ${error.message}`,
+            error.stack,
+          );
+
+          operationResults.productUpdate = { success: false };
+        }
+      }
+
+      // Check if any operation succeeded
+      const anyOperationSucceeded = Object.values(operationResults).some(
+        (result) => result && result.success === true,
+      );
+
+      // If all operations failed, rollback and throw error
+      if (!anyOperationSucceeded) {
+        await queryRunner.rollbackTransaction();
+
+        throw new HttpException(
+          {
+            success: false,
+            message: 'All atomic update operations failed',
+            operations: operationResults,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Commit the transaction
+      await queryRunner.commitTransaction();
+
+      // Fetch the updated product to return
+      const updatedProduct = await this.findById(product.num);
+
+      return {
+        success: true,
+        message: 'Product updated successfully',
+        product: updatedProduct,
+        operations: operationResults,
+      };
+    } catch (error) {
+      // Rollback the transaction on error
+      await queryRunner.rollbackTransaction();
+
+      this.logger.error(
+        `Error performing atomic product update: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to update product: ${error.message}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Release the query runner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Find a product by its SKU
+   * @param sku The product SKU
+   * @returns Product with related data
+   */
+  async findBySku(sku: string): Promise<ProductResponseDto> {
+    try {
+      const product = await this.webProductRepository.findOne({
+        where: { sku },
+        relations: ['images', 'catalogs'],
+      });
+
+      if (!product) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with SKU ${sku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return this.productMapper.mapToDto(product);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to retrieve product with SKU ${sku}`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

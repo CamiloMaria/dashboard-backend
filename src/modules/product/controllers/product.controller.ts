@@ -12,6 +12,8 @@ import {
   HttpCode,
   Patch,
   Delete,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,7 +22,9 @@ import {
   ApiParam,
   ApiBody,
   ApiBearerAuth,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ProductService } from '../services/product.service';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { ProductFilterDto } from '../dto/product-filter.dto';
@@ -45,6 +49,7 @@ import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
 import { ProductPatchDto } from '../dto/product-update.dto';
 import { ProductDeleteDto } from '../dto/product-delete.dto';
+import { AtomicProductUpdateDto } from '../dto/atomic-product-update.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -492,6 +497,144 @@ export class ProductController {
         {
           success: false,
           message: error.message || 'Failed to delete product',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('atomic-update')
+  @ApiOperation({
+    summary: 'Update a product and its images in a single transaction',
+    description:
+      'Process multiple operations in a single atomic transaction: update product metadata, delete images, reorder images, and upload new images.',
+  })
+  @UseInterceptors(FilesInterceptor('files'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'string',
+          description: 'JSON string containing the operations to perform',
+        },
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+          description: 'Image files to upload (if any)',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product and images updated successfully',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request or invalid data',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product not found',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async atomicProductUpdate(
+    @Body('data') dataString: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Parse the JSON data
+      const data: AtomicProductUpdateDto = JSON.parse(dataString);
+
+      // Get the authenticated user
+      const username = req.user?.username || 'system';
+
+      // Get product ID from the data
+      if (!data.sku) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Product SKU is required',
+            error: 'MISSING_PRODUCT_IDENTIFIER',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Process the atomic update
+      const result = await this.productService.atomicProductUpdate(
+        data.sku,
+        {
+          product: data.metadata,
+          images: {
+            delete: data.imagesToDelete,
+            reorder: data.imagesToReorder?.map((item) => ({
+              currentPosition: item.currentPosition,
+              newPosition: item.newPosition,
+            })),
+            // Process files based on their fieldname to identify their position
+            add: files?.map((file) => {
+              // Extract position from the filename, default to the end if not specified
+              const positionMatch =
+                file.originalname.match(/position[_-]?(\d+)/i);
+              const position = positionMatch
+                ? parseInt(positionMatch[1], 10)
+                : null;
+              return { position, file };
+            }),
+          },
+        },
+        username,
+      );
+
+      return this.responseService.success(
+        result,
+        'Product updated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        // Handle JSON parsing error
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Invalid JSON data provided',
+            error: error.message,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to process product update',
           error: error.message,
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,

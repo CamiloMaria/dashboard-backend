@@ -650,7 +650,7 @@ export class ExternalApiService {
    * @param requireSignedURLs Whether to require signed URLs for the image
    * @returns The response from Cloudflare Images API
    */
-  async uploadBatchImageFromFile(
+  async uploadImageFromFile(
     file: Express.Multer.File,
     token?: string,
     metadata?: object,
