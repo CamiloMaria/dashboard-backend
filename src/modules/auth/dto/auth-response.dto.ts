@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { AuthCookieOptions } from '../../../common/interfaces/cookie-options.interface';
 
 export class UserPayloadDto {
   @ApiProperty({
@@ -33,6 +34,42 @@ export class UserLoginResponseDto {
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   access_token: string;
+
+  @ApiProperty({
+    description: 'JWT refresh token',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    required: false,
+  })
+  refresh_token?: string;
+
+  @ApiProperty({
+    description: 'Access token cookie configuration',
+    required: false,
+    type: Object,
+    example: {
+      name: 'auth_token',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 3600000,
+    },
+  })
+  access_cookie?: AuthCookieOptions;
+
+  @ApiProperty({
+    description: 'Refresh token cookie configuration',
+    required: false,
+    type: Object,
+    example: {
+      name: 'refresh_auth_token',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/auth/refresh',
+      maxAge: 604800000,
+    },
+  })
+  refresh_cookie?: AuthCookieOptions;
 
   @ApiProperty({
     description: 'User information and permissions',

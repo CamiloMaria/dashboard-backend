@@ -44,6 +44,35 @@ export const envValidationSchema = Joi.object({
   JWT_EXPIRATION_TIME: Joi.string()
     .required()
     .description('JWT token expiration time'),
+  JWT_REFRESH_SECRET_KEY: Joi.string()
+    .required()
+    .description('Secret key for JWT refresh token signing'),
+  JWT_REFRESH_EXPIRATION_TIME: Joi.string()
+    .required()
+    .description('JWT refresh token expiration time'),
+
+  // Cookie Configuration
+  COOKIE_SECRET: Joi.string()
+    .required()
+    .description('Secret key for cookie signing'),
+  COOKIE_NAME: Joi.string()
+    .default('auth_token')
+    .description('Name of the auth cookie'),
+  COOKIE_DOMAIN: Joi.string().description('Domain for the cookie'),
+  COOKIE_PATH: Joi.string().default('/').description('Path for the cookie'),
+  COOKIE_MAX_AGE: Joi.number()
+    .default(86400000)
+    .description('Max age of the cookie in milliseconds'),
+  COOKIE_SECURE: Joi.boolean()
+    .default(false)
+    .description('Whether the cookie should only be sent over HTTPS'),
+  COOKIE_HTTP_ONLY: Joi.boolean()
+    .default(true)
+    .description('Whether the cookie should be httpOnly'),
+  COOKIE_SAME_SITE: Joi.string()
+    .valid('strict', 'lax', 'none')
+    .default('lax')
+    .description('SameSite attribute for the cookie'),
 
   // Database Configuration - Shopilama
   SHOP_HOST: Joi.string().required().description('Shopilama database host'),
@@ -122,7 +151,7 @@ export const envValidationSchema = Joi.object({
     .description('ChatGPT API base URL'),
 
   INSTALEAP_API_KEY: Joi.string().required().description('Instaleap API key'),
-  INSTALEAP_BASE_URL: Joi.string()
+  INSTALEAP_API_BASE_URL: Joi.string()
     .uri()
     .required()
     .description('Instaleap base URL'),

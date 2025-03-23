@@ -59,6 +59,79 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.JWT_EXPIRATION_TIME);
   }
 
+  get jwtRefreshSecret(): string {
+    return this.configService.get<string>(
+      ConfigKeys.JWT_REFRESH_SECRET_KEY,
+      this.jwtSecret, // Default to regular JWT secret if not specified
+    );
+  }
+
+  get jwtRefreshExpiresIn(): string {
+    return this.configService.get<string>(
+      ConfigKeys.JWT_REFRESH_EXPIRATION_TIME,
+      this.refreshTokenExpiration, // Default to refresh token expiration
+    );
+  }
+
+  // Cookie settings
+  get cookieSecret(): string {
+    return this.configService.get<string>(
+      ConfigKeys.COOKIE_SECRET,
+      this.jwtSecret,
+    );
+  }
+
+  get cookieName(): string {
+    return this.configService.get<string>(ConfigKeys.COOKIE_NAME, 'auth_token');
+  }
+
+  get cookieDomain(): string {
+    return this.configService.get<string>(ConfigKeys.COOKIE_DOMAIN);
+  }
+
+  get cookieHttpOnly(): boolean {
+    return this.configService.get<boolean>(ConfigKeys.COOKIE_HTTP_ONLY, true);
+  }
+
+  get cookieSecure(): boolean {
+    return this.configService.get<boolean>(
+      ConfigKeys.COOKIE_SECURE,
+      this.environment !== 'development',
+    );
+  }
+
+  get cookieSameSite(): boolean | 'lax' | 'strict' | 'none' {
+    const sameSite = this.configService.get<string>(
+      ConfigKeys.COOKIE_SAME_SITE,
+      'lax',
+    );
+    if (['strict', 'lax', 'none'].includes(sameSite)) {
+      return sameSite as 'strict' | 'lax' | 'none';
+    }
+    if (sameSite === 'true') return true;
+    if (sameSite === 'false') return false;
+    return 'lax';
+  }
+
+  get cookiePath(): string {
+    return this.configService.get<string>(ConfigKeys.COOKIE_PATH, '/');
+  }
+
+  get cookieMaxAge(): number {
+    return this.configService.get<number>(
+      ConfigKeys.COOKIE_MAX_AGE,
+      // Default to JWT expiration time or 1 day in milliseconds
+      parseInt(this.jwtExpirationTime) || 86400000,
+    );
+  }
+
+  get refreshTokenExpiration(): string {
+    return this.configService.get<string>(
+      ConfigKeys.REFRESH_TOKEN_EXPIRATION,
+      '7d',
+    );
+  }
+
   // Database - Shopilama
   get shopHost(): string {
     return this.configService.get<string>(ConfigKeys.SHOP_HOST);
@@ -175,7 +248,7 @@ export class EnvService {
   }
 
   get instaleapBaseUrl(): string {
-    return this.configService.get<string>(ConfigKeys.INSTALEAP_BASE_URL);
+    return this.configService.get<string>(ConfigKeys.INSTALEAP_API_BASE_URL);
   }
 
   // Helper methods for database connection configs

@@ -9,6 +9,7 @@ import {
   Get,
   Request,
   InternalServerErrorException,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,7 +17,9 @@ import {
   ApiResponse,
   ApiBody,
   ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 
 import { AuthService } from '../services/auth.service';
 import { LoginDto } from '../dto/login.dto';
@@ -26,6 +29,7 @@ import { JwtAuthGuard, RolesGuard, RequirePages } from '../../../common/guards';
 import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
+import { AuthCookieOptions } from '../../../common/interfaces/cookie-options.interface';
 
 /**
  * Controller for authentication-related endpoints
@@ -53,6 +57,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePages('/')
   @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get user profile',
     description: 'Returns the authenticated user profile information',
@@ -90,6 +95,10 @@ export class AuthController {
       return this.responseService.success(
         req.user,
         'Profile retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
       );
     } catch (error) {
       throw new InternalServerErrorException({
@@ -103,6 +112,7 @@ export class AuthController {
   /**
    * Authenticate a user and return a JWT token
    * @param loginDto User credentials
+   * @param res Express response object to set cookies
    * @returns JWT token and user information including permissions
    */
   @Post('sign-in')
@@ -111,7 +121,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'User authentication',
     description:
-      'Authenticate with username and password to receive a JWT token and user details with permissions',
+      'Authenticate with username and password to receive a JWT token and user details with permissions. The token is also set as an HTTP-only cookie.',
   })
   @ApiBody({
     type: LoginDto,
@@ -192,8 +202,187 @@ export class AuthController {
       }),
     )
     loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<BaseResponse<UserLoginResponseDto>> {
     const result = await this.authService.login(loginDto);
-    return this.responseService.success(result, 'Login successful');
+
+    // Log cookie details for debugging
+    console.log('Login response received with cookies:');
+    if (result.access_cookie) {
+      this.logCookieDetails(
+        'Access cookie configuration',
+        result.access_cookie,
+      );
+    } else {
+      console.log('No access_cookie in result!');
+    }
+
+    if (result.refresh_cookie) {
+      this.logCookieDetails(
+        'Refresh cookie configuration',
+        result.refresh_cookie,
+      );
+    } else {
+      console.log('No refresh_cookie in result!');
+    }
+
+    // Set the access token cookie
+    if (result.access_cookie) {
+      const { name, ...options } = result.access_cookie;
+
+      // Log what we're doing
+      console.log(
+        `Setting access cookie: ${name} with token length: ${result.access_token?.length || 0}`,
+      );
+
+      res.cookie(name, result.access_token, options);
+    }
+
+    // Set the refresh token cookie if available
+    if (result.refresh_cookie && result.refresh_token) {
+      const { name, ...options } = result.refresh_cookie;
+
+      // Log what we're doing
+      console.log(
+        `Setting refresh cookie: ${name} with token length: ${result.refresh_token?.length || 0}`,
+      );
+
+      res.cookie(name, result.refresh_token, options);
+    }
+
+    // Always remove tokens from response in all environments
+    // Tokens are now only sent in cookies
+    const sanitizedResult = { ...result };
+    delete sanitizedResult.access_token;
+    delete sanitizedResult.refresh_token;
+    delete sanitizedResult.access_cookie;
+    delete sanitizedResult.refresh_cookie;
+
+    return this.responseService.success(sanitizedResult, 'Login successful');
+  }
+
+  /**
+   * Refresh the access token using a refresh token from cookies
+   * @param req The request containing the refresh token cookie
+   * @param res The response to set the new access token cookie
+   */
+  @Post('refresh')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description: 'Use a refresh token to get a new access token',
+  })
+  @ApiCookieAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Token refreshed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Token refreshed successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Invalid refresh token',
+    type: BaseResponse,
+  })
+  async refreshToken(
+    @Request() req: RequestWithUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BaseResponse<null>> {
+    try {
+      // Extract refresh token from cookies
+      const refreshTokenName = `refresh_${this.authService['envService'].cookieName}`;
+      const refreshToken = req.cookies[refreshTokenName];
+
+      if (!refreshToken) {
+        throw new InternalServerErrorException('Refresh token not found');
+      }
+
+      // Generate a new access token
+      const { token, cookieOptions } =
+        await this.authService.refreshAccessToken(refreshToken);
+
+      // Set the new access token cookie
+      const { name, ...options } = cookieOptions;
+      res.cookie(name, token, options);
+
+      return this.responseService.success(
+        null,
+        'Token refreshed successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Failed to refresh token',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Logout a user by clearing authentication cookies
+   * @param res The response to clear cookies
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Logout user',
+    description: 'Clears authentication cookies to log out the user',
+  })
+  @ApiCookieAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Logged out successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Logged out successfully',
+        data: null,
+      },
+    },
+  })
+  async logout(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BaseResponse<null>> {
+    // Get cookie options configured to expire the cookies
+    const { accessCookie, refreshCookie } = this.authService.logout();
+
+    // Log cookie details for debugging
+    this.logCookieDetails('Clearing access cookie', accessCookie);
+    this.logCookieDetails('Clearing refresh cookie', refreshCookie);
+
+    // Clear the access token cookie
+    const { name: accessName, ...accessOptions } = accessCookie;
+    res.cookie(accessName, '', accessOptions);
+
+    // Clear the refresh token cookie
+    const { name: refreshName, ...refreshOptions } = refreshCookie;
+    res.cookie(refreshName, '', refreshOptions);
+
+    return this.responseService.success(null, 'Logged out successfully');
+  }
+
+  /**
+   * Log cookie details for debugging purposes
+   * @param message Message prefix for the log
+   * @param cookie Cookie configuration to log
+   */
+  private logCookieDetails(message: string, cookie: AuthCookieOptions): void {
+    console.log(`${message}: {
+      name: ${cookie.name},
+      path: ${cookie.path || '/'},
+      domain: ${cookie.domain || 'default'},
+      httpOnly: ${cookie.httpOnly}, 
+      secure: ${cookie.secure},
+      maxAge: ${cookie.maxAge}
+    }`);
   }
 }

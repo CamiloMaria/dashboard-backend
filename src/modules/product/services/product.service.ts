@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Like, Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -43,10 +43,11 @@ export class ProductService {
     private readonly webProductImageRepository: Repository<WebProductImage>,
     @InjectRepository(WebProductRemoved, DatabaseConnection.SHOP)
     private readonly webProductRemovedRepository: Repository<WebProductRemoved>,
+    @InjectDataSource(DatabaseConnection.SHOP)
+    private readonly dataSource: DataSource,
+    private readonly logger: LoggerService,
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
-    private readonly logger: LoggerService,
-    private readonly dataSource: DataSource,
     private readonly moduleRef: ModuleRef,
   ) {}
 
