@@ -117,14 +117,6 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.COOKIE_PATH, '/');
   }
 
-  get cookieMaxAge(): number {
-    return this.configService.get<number>(
-      ConfigKeys.COOKIE_MAX_AGE,
-      // Default to JWT expiration time or 1 day in milliseconds
-      parseInt(this.jwtExpirationTime) || 86400000,
-    );
-  }
-
   get refreshTokenExpiration(): string {
     return this.configService.get<string>(
       ConfigKeys.REFRESH_TOKEN_EXPIRATION,

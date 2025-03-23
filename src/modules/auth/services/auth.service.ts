@@ -115,18 +115,6 @@ export class AuthService {
       cookieOptions.domain = this.envService.cookieDomain;
     }
 
-    this.logger.debug(
-      `Access token cookie configured: ${JSON.stringify({
-        name: cookieOptions.name,
-        path: cookieOptions.path,
-        maxAge: cookieOptions.maxAge,
-        httpOnly: cookieOptions.httpOnly,
-        secure: cookieOptions.secure,
-        sameSite: cookieOptions.sameSite,
-        domain: cookieOptions.domain || 'not set',
-      })}`,
-    );
-
     return { token, cookieOptions };
   }
 
@@ -205,8 +193,6 @@ export class AuthService {
         throw new UnauthorizedException('Invalid token payload');
       }
 
-      this.logger.debug(`Refreshing token for user ID: ${userId}`);
-
       // Generate a new access token with minimal claims
       // The full user details will be loaded when they access protected resources
       const token = this.jwtService.sign({ sub: userId });
@@ -217,7 +203,7 @@ export class AuthService {
         httpOnly: this.envService.cookieHttpOnly,
         secure: this.envService.cookieSecure,
         sameSite: this.envService.cookieSameSite,
-        path: '/', // Root path for general access
+        path: this.envService.cookiePath,
         maxAge: this.calculateMaxAge(this.envService.jwtExpirationTime),
       };
 
@@ -225,10 +211,6 @@ export class AuthService {
       if (this.envService.cookieDomain) {
         cookieOptions.domain = this.envService.cookieDomain;
       }
-
-      this.logger.debug(
-        `Created new access token cookie: ${cookieOptions.name}`,
-      );
 
       return { token, cookieOptions };
     } catch (error) {
@@ -254,7 +236,7 @@ export class AuthService {
       httpOnly: this.envService.cookieHttpOnly,
       secure: this.envService.cookieSecure,
       sameSite: this.envService.cookieSameSite,
-      path: '/', // Root path for general access
+      path: this.envService.cookiePath,
       maxAge: 0, // Expire immediately
     };
 

@@ -21,7 +21,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiConsumes,
 } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -52,7 +52,7 @@ import { ProductDeleteDto } from '../dto/product-delete.dto';
 import { AtomicProductUpdateDto } from '../dto/atomic-product-update.dto';
 
 @ApiTags('Products')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('products')
 export class ProductController {
   constructor(

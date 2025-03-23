@@ -15,7 +15,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
@@ -51,7 +51,7 @@ export class ProductSetController {
   }
 
   @Get()
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get all product sets with pagination, search, and sorting',
   })
@@ -101,7 +101,7 @@ export class ProductSetController {
   }
 
   @Post()
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Create a product set (bundle)',
     description:
@@ -187,7 +187,7 @@ export class ProductSetController {
   }
 
   @Delete(':setSku')
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Delete a product set',
     description:

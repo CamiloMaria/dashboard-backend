@@ -16,7 +16,6 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBody,
-  ApiBearerAuth,
   ApiCookieAuth,
 } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -29,11 +28,11 @@ import { JwtAuthGuard, RolesGuard, RequirePages } from '../../../common/guards';
 import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
-import { AuthCookieOptions } from '../../../common/interfaces/cookie-options.interface';
 
 /**
  * Controller for authentication-related endpoints
  */
+@ApiCookieAuth()
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -56,8 +55,6 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePages('/')
-  @ApiBearerAuth()
-  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get user profile',
     description: 'Returns the authenticated user profile information',
@@ -205,35 +202,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<BaseResponse<UserLoginResponseDto>> {
     const result = await this.authService.login(loginDto);
-
-    // Log cookie details for debugging
-    console.log('Login response received with cookies:');
-    if (result.access_cookie) {
-      this.logCookieDetails(
-        'Access cookie configuration',
-        result.access_cookie,
-      );
-    } else {
-      console.log('No access_cookie in result!');
-    }
-
-    if (result.refresh_cookie) {
-      this.logCookieDetails(
-        'Refresh cookie configuration',
-        result.refresh_cookie,
-      );
-    } else {
-      console.log('No refresh_cookie in result!');
-    }
-
     // Set the access token cookie
     if (result.access_cookie) {
       const { name, ...options } = result.access_cookie;
-
-      // Log what we're doing
-      console.log(
-        `Setting access cookie: ${name} with token length: ${result.access_token?.length || 0}`,
-      );
 
       res.cookie(name, result.access_token, options);
     }
@@ -241,11 +212,6 @@ export class AuthController {
     // Set the refresh token cookie if available
     if (result.refresh_cookie && result.refresh_token) {
       const { name, ...options } = result.refresh_cookie;
-
-      // Log what we're doing
-      console.log(
-        `Setting refresh cookie: ${name} with token length: ${result.refresh_token?.length || 0}`,
-      );
 
       res.cookie(name, result.refresh_token, options);
     }
@@ -273,7 +239,6 @@ export class AuthController {
     summary: 'Refresh access token',
     description: 'Use a refresh token to get a new access token',
   })
-  @ApiCookieAuth()
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Token refreshed successfully',
@@ -337,7 +302,6 @@ export class AuthController {
     summary: 'Logout user',
     description: 'Clears authentication cookies to log out the user',
   })
-  @ApiCookieAuth()
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Logged out successfully',
@@ -355,10 +319,6 @@ export class AuthController {
     // Get cookie options configured to expire the cookies
     const { accessCookie, refreshCookie } = this.authService.logout();
 
-    // Log cookie details for debugging
-    this.logCookieDetails('Clearing access cookie', accessCookie);
-    this.logCookieDetails('Clearing refresh cookie', refreshCookie);
-
     // Clear the access token cookie
     const { name: accessName, ...accessOptions } = accessCookie;
     res.cookie(accessName, '', accessOptions);
@@ -368,21 +328,5 @@ export class AuthController {
     res.cookie(refreshName, '', refreshOptions);
 
     return this.responseService.success(null, 'Logged out successfully');
-  }
-
-  /**
-   * Log cookie details for debugging purposes
-   * @param message Message prefix for the log
-   * @param cookie Cookie configuration to log
-   */
-  private logCookieDetails(message: string, cookie: AuthCookieOptions): void {
-    console.log(`${message}: {
-      name: ${cookie.name},
-      path: ${cookie.path || '/'},
-      domain: ${cookie.domain || 'default'},
-      httpOnly: ${cookie.httpOnly}, 
-      secure: ${cookie.secure},
-      maxAge: ${cookie.maxAge}
-    }`);
   }
 }

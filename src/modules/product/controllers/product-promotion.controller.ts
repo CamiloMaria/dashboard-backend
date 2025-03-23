@@ -13,7 +13,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { PromotionService } from '../services/product-promotion.service';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
@@ -26,7 +26,7 @@ import { ResponseService } from '../../../common/services/response.service';
 import { Public } from 'src/common/decorators';
 
 @ApiTags('Products Promotions')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('product-promotions')
 export class ProductPromotionController {
   constructor(

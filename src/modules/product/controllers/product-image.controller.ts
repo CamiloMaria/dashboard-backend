@@ -1,7 +1,7 @@
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiCookieAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -33,7 +33,7 @@ import { Public } from 'src/common/decorators';
 import { ImageDeleteBatchDto, ImageReorderDto, ImageUpdateDto } from '../dto';
 
 @ApiTags('Products Images')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('product-images')
 export class ProductImageController {
   constructor(

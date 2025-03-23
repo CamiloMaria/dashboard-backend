@@ -60,9 +60,6 @@ export const envValidationSchema = Joi.object({
     .description('Name of the auth cookie'),
   COOKIE_DOMAIN: Joi.string().description('Domain for the cookie'),
   COOKIE_PATH: Joi.string().default('/').description('Path for the cookie'),
-  COOKIE_MAX_AGE: Joi.number()
-    .default(86400000)
-    .description('Max age of the cookie in milliseconds'),
   COOKIE_SECURE: Joi.boolean()
     .default(false)
     .description('Whether the cookie should only be sent over HTTPS'),
