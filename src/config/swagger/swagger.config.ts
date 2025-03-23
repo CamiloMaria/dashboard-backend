@@ -10,7 +10,7 @@ export function createSwaggerConfig(envService: EnvService) {
     .setTitle(envService.documentationTitle)
     .setDescription(envService.documentationDescription)
     .setVersion(envService.version)
-    .addBearerAuth();
+    .addCookieAuth(envService.cookieName);
 
   return builder.build();
 }

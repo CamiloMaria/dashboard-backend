@@ -90,7 +90,7 @@ export class AuthController {
       // The user is automatically injected into the request by the JwtAuthGuard
       // and is available as req.user
       return this.responseService.success(
-        req.user,
+        { user: req.user },
         'Profile retrieved successfully',
         {
           statusCode: HttpStatus.OK,
@@ -224,7 +224,10 @@ export class AuthController {
     delete sanitizedResult.access_cookie;
     delete sanitizedResult.refresh_cookie;
 
-    return this.responseService.success(sanitizedResult, 'Login successful');
+    return this.responseService.success(sanitizedResult, 'Login successful', {
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
@@ -327,6 +330,9 @@ export class AuthController {
     const { name: refreshName, ...refreshOptions } = refreshCookie;
     res.cookie(refreshName, '', refreshOptions);
 
-    return this.responseService.success(null, 'Logged out successfully');
+    return this.responseService.success(null, 'Logged out successfully', {
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+    });
   }
 }

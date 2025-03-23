@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  BaseResponse,
-  PaginationMeta,
-} from '../schemas/response.schema';
+import { BaseResponse, PaginationMeta } from '../schemas/response.schema';
 
 /**
  * Interface for standardized responses
