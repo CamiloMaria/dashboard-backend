@@ -270,7 +270,20 @@ export class ProductService {
       clásicos del pais. Para esta tarea, te voy a dar el titulo del producto.
       Tu trabajo ahora es ayúdarme a generar una descripción comercial 
       para el siguiente producto: ${productTitle}. 
-      Quiero que solo me respondas con el texto en formato html.`;
+      Quiero que solo me respondas con el texto en formato html. Debet tener este formato:
+      <p>Descripción breve del producto</p>
+      <h3>Características del producto</h3>
+      <ul>
+          <li>Característica 1</li>
+          <li>Característica 2</li>
+          <li>Característica 3</li>
+          <li>etc...</li>
+      </ul>
+      <h3>Perfecto para Disfrutar:</h3>
+      <p>Descripción breve</p>
+      <h3>¿Por qué elegir ${productTitle}?</h3>
+      <p>Descripción breve</p>
+      `;
 
       const content = await this.externalApiService.callChatGptApi([
         { role: 'system', content: 'You are a helpful assistant.' },
