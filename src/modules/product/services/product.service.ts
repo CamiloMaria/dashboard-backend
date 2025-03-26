@@ -270,7 +270,7 @@ export class ProductService {
       clásicos del pais. Para esta tarea, te voy a dar el titulo del producto.
       Tu trabajo ahora es ayúdarme a generar una descripción comercial 
       para el siguiente producto: ${productTitle}. 
-      Quiero que solo me respondas con el texto en formato html. Debet tener este formato:
+      Quiero que solo me respondas con el texto en formato html y agreaga unicamente &nbsp; antes de cada etiquita de abrir <h3>. Debe tener este formato:
       <p>Descripción breve del producto</p>
       <h3>Características del producto</h3>
       <ul>
