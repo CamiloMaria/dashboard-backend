@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { WebProductPromo } from '../entities/shop/web-product-promo.entity';
 import { PromotionResponseDto } from '../dto/promotion-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
@@ -11,12 +11,15 @@ import {
   SortField,
   SortOrder,
 } from '../dto/promotion-filter.dto';
+import { WebProduct } from '../entities/shop/web-product.entity';
 
 @Injectable()
 export class PromotionService {
   constructor(
     @InjectRepository(WebProductPromo, DatabaseConnection.SHOP)
     private readonly promotionRepository: Repository<WebProductPromo>,
+    @InjectRepository(WebProduct, DatabaseConnection.SHOP)
+    private readonly productRepository: Repository<WebProduct>,
     private readonly promotionMapper: PromotionMapper,
   ) {}
 
@@ -36,6 +39,7 @@ export class PromotionService {
         sku,
         matnr,
         shop,
+        search,
         sortBy = SortField.CREATE_AT,
         sortOrder = SortOrder.DESC,
       } = filterDto;
@@ -47,62 +51,79 @@ export class PromotionService {
       // Calculate offset
       const offset = (validPage - 1) * validLimit;
 
-      // Build where conditions for search
-      const whereConditions: FindOptionsWhere<WebProductPromo> = {};
+      // Create query builder
+      const queryBuilder = this.promotionRepository
+        .createQueryBuilder('promo')
+        .select([
+          'promo.no_promo as no_promo',
+          'promo.sku as sku',
+          'promo.matnr as matnr',
+          'promo.price as price',
+          'promo.compare_price as compare_price',
+          'promo.create_at as create_at',
+          'promo.status as status',
+          'promo.shop as shop',
+        ])
+        .where('promo.status = :status', { status: 1 });
 
-      // Add search filters if provided
-      if (no_promo) {
-        whereConditions.no_promo = no_promo;
+      // Apply search filters
+      if (search) {
+        queryBuilder.andWhere(
+          '(promo.no_promo LIKE :search OR promo.sku LIKE :search OR promo.matnr LIKE :search OR promo.shop LIKE :search)',
+          { search: `%${search}%` },
+        );
+      } else {
+        // Apply specific filters if provided
+        if (no_promo) {
+          queryBuilder.andWhere('promo.no_promo = :no_promo', { no_promo });
+        }
+
+        if (sku) {
+          queryBuilder.andWhere('promo.sku = :sku', { sku });
+        }
+
+        if (matnr) {
+          queryBuilder.andWhere('promo.matnr = :matnr', { matnr });
+        }
+
+        if (shop) {
+          queryBuilder.andWhere('promo.shop = :shop', { shop });
+        }
       }
 
-      if (sku) {
-        whereConditions.sku = sku;
-      }
+      // Apply sorting
+      queryBuilder.orderBy(`promo.${sortBy}`, sortOrder);
 
-      if (matnr) {
-        whereConditions.matnr = matnr;
-      }
-
-      if (shop) {
-        whereConditions.shop = shop;
-      }
-
-      // Set status to active (1) by default
-      whereConditions.status = 1;
-
-      // Get total count of promotions matching the search criteria
-      const totalItems = await this.promotionRepository.count({
-        where: whereConditions,
-      });
+      // Get total count for pagination
+      const totalItems = await queryBuilder.getCount();
 
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalItems / validLimit);
 
-      // Prepare the order options for sorting
-      const orderOptions: { [key: string]: 'ASC' | 'DESC' } = {};
-      if (sortBy) {
-        orderOptions[sortBy] = sortOrder;
-      }
+      // Apply pagination
+      queryBuilder.skip(offset).take(validLimit);
 
-      // Find promotions matching the search criteria with pagination
-      // Don't eagerly load relations to avoid slow queries with non-indexed columns
-      const promotions = await this.promotionRepository.find({
-        where: whereConditions,
-        relations: ['product', 'promo'], // Load both relations at once
-        skip: offset,
-        take: validLimit,
-        order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
-        select: {
-          no_promo: true,
-          sku: true,
-          matnr: true,
-          price: true,
-          compare_price: true,
-          create_at: true,
-          status: true,
-          shop: true,
+      // Execute query
+      const promotions = await queryBuilder.getRawMany();
+
+      const products = await this.productRepository.find({
+        where: {
+          sku: In(promotions.map((promotion) => promotion.sku)),
         },
-        relationLoadStrategy: 'query', // More efficient loading strategy
+      });
+
+      const productsMap = new Map<string, WebProduct>();
+      products.forEach((product) => {
+        productsMap.set(product.sku, product);
+      });
+      promotions.forEach((promotion: WebProductPromo) => {
+        if (!promotion.product) {
+          promotion.product = {
+            title: productsMap.get(promotion.sku)?.title || '',
+          } as any;
+        } else {
+          promotion.product.title = productsMap.get(promotion.sku)?.title || '';
+        }
       });
 
       if (!promotions || promotions.length === 0) {
@@ -116,8 +137,7 @@ export class PromotionService {
         );
       }
 
-      // Map database entities to response DTOs without eager relations
-      // Product titles will be empty initially
+      // Map database entities to response DTOs
       const items = await Promise.all(
         promotions.map((promotion) => this.promotionMapper.mapToDto(promotion)),
       );

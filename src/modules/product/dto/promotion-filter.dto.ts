@@ -52,6 +52,14 @@ export class PromotionFilterDto extends PaginationQueryDto {
   shop?: string;
 
   @ApiProperty({
+    description: 'Search',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiProperty({
     description: 'Field to sort by',
     enum: SortField,
     default: SortField.CREATE_AT,
