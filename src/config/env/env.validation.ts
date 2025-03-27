@@ -127,7 +127,6 @@ export const envValidationSchema = Joi.object({
     .required()
     .description('E-Commerce Instaleap URL'),
   CLOUDFLARE_IMAGE_PREFIX: Joi.string()
-    .uri()
     .required()
     .description('Cloudflare image prefix'),
 
