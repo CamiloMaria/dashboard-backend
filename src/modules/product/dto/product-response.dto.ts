@@ -64,7 +64,7 @@ export class ProductCatalogResponseDto {
   status_changed_by: string;
 
   @ApiProperty({ example: '2025-02-25T00:00:00.000Z' })
-  fecha: Date;
+  updated_at: Date;
 }
 
 export class ProductResponseDto {

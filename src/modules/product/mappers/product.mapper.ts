@@ -112,7 +112,7 @@ export class ProductMapper {
       manual_override: catalog.manual_override,
       status_changed_at: catalog.status_changed_at,
       status_changed_by: catalog.status_changed_by,
-      fecha: catalog.update_at,
+      updated_at: catalog.update_at,
     }));
   }
 
