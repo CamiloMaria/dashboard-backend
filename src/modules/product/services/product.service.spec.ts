@@ -26,7 +26,7 @@ const mockResponseDto = {
   title: 'Test Product',
   material: '123456',
   images: [],
-  inventory: [],
+  catalogs: [],
 } as ProductResponseDto;
 
 // Mock repository

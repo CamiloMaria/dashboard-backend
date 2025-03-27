@@ -32,7 +32,7 @@ export class ProductImageResponseDto {
   status: number;
 }
 
-export class ProductInventoryResponseDto {
+export class ProductCatalogResponseDto {
   @ApiProperty({ example: 58072 })
   id: number;
 
@@ -40,7 +40,7 @@ export class ProductInventoryResponseDto {
   stock: number;
 
   @ApiProperty({ example: 'CD01' })
-  centro: string;
+  shop: string;
 
   @ApiProperty({ example: 29077.6 })
   price: number;
@@ -50,6 +50,18 @@ export class ProductInventoryResponseDto {
 
   @ApiProperty({ example: 1 })
   status: number;
+
+  @ApiProperty({ example: 'No hay stock' })
+  status_comment: string;
+
+  @ApiProperty({ example: false })
+  manual_override: boolean;
+
+  @ApiProperty({ example: '2025-02-25T00:00:00.000Z' })
+  status_changed_at: Date;
+
+  @ApiProperty({ example: 'cmaria' })
+  status_changed_by: string;
 
   @ApiProperty({ example: '2025-02-25T00:00:00.000Z' })
   fecha: Date;
@@ -149,6 +161,6 @@ export class ProductResponseDto {
   })
   specifications: { title: string; description: string }[];
 
-  @ApiProperty({ type: [ProductInventoryResponseDto] })
-  inventory: ProductInventoryResponseDto[];
+  @ApiProperty({ type: [ProductCatalogResponseDto] })
+  catalogs: ProductCatalogResponseDto[];
 }

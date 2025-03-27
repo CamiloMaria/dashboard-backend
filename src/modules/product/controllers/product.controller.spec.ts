@@ -38,7 +38,7 @@ const mockProduct = {
   update_at: new Date(),
   images: [],
   specifications: [],
-  inventory: [],
+  catalogs: [],
 } as ProductResponseDto;
 
 const mockPaginationMeta: PaginationMeta = {

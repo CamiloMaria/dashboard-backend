@@ -176,7 +176,7 @@ export class ProductService {
   }
 
   /**
-   * Fetch all products with their related images and inventory
+   * Fetch all products with their related images and catalogs
    * @returns Array of products with related data
    */
   async findAll(): Promise<ProductResponseDto[]> {

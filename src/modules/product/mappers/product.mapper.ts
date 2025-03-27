@@ -4,11 +4,12 @@ import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import {
   ProductResponseDto,
   ProductImageResponseDto,
-  ProductInventoryResponseDto,
+  ProductCatalogResponseDto,
 } from '../dto/product-response.dto';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DatabaseConnection } from '../../../config/database/constants';
+import { WebCatalog } from '../entities/shop/web-catalog.entity';
 
 @Injectable()
 export class ProductMapper {
@@ -37,8 +38,8 @@ export class ProductMapper {
     // Map images
     const images = this.mapImages(product.images || []);
 
-    // Map inventory (catalogs)
-    const inventory = this.mapInventory(product.catalogs || []);
+    // Map catalogs
+    const catalogs = this.mapCatalog(product.catalogs || []);
 
     // Fetch product group data for category and bigItems
     const { category, bigItems } = await this.fetchProductGroupData(
@@ -61,7 +62,7 @@ export class ProductMapper {
       image_url: this.extractMainImageUrl(product.images_url, images),
       unit: product.unmanejo,
       isActive: !product.borrado,
-      stock: this.calculateTotalStock(inventory),
+      stock: this.calculateTotalStock(catalogs),
       without_stock: product.without_stock,
       borrado_comment: product.borrado_comment,
       shops_disable: shopsDisable,
@@ -75,7 +76,7 @@ export class ProductMapper {
       update_at: product.update_at,
       images,
       specifications,
-      inventory,
+      catalogs,
     };
   }
 
@@ -97,16 +98,20 @@ export class ProductMapper {
   }
 
   /**
-   * Maps WebCatalog entities to inventory DTOs
+   * Maps WebCatalog entities to catalogs DTOs
    */
-  private mapInventory(catalogs: any[]): ProductInventoryResponseDto[] {
+  private mapCatalog(catalogs: WebCatalog[]): ProductCatalogResponseDto[] {
     return catalogs.map((catalog) => ({
       id: catalog.id,
       stock: catalog.stock,
-      centro: catalog.pl,
+      shop: catalog.pl,
       price: catalog.price,
       compare_price: catalog.compare_price,
       status: catalog.status,
+      status_comment: catalog.status_comment,
+      manual_override: catalog.manual_override,
+      status_changed_at: catalog.status_changed_at,
+      status_changed_by: catalog.status_changed_by,
       fecha: catalog.update_at,
     }));
   }
@@ -178,12 +183,10 @@ export class ProductMapper {
   }
 
   /**
-   * Calculate total stock across all inventory items
+   * Calculate total stock across all catalogs items
    */
-  private calculateTotalStock(
-    inventory: ProductInventoryResponseDto[],
-  ): number {
-    if (!inventory || inventory.length === 0) return 0;
-    return inventory.reduce((total, item) => total + (item.stock || 0), 0);
+  private calculateTotalStock(catalogs: ProductCatalogResponseDto[]): number {
+    if (!catalogs || catalogs.length === 0) return 0;
+    return catalogs.reduce((total, item) => total + (item.stock || 0), 0);
   }
 }

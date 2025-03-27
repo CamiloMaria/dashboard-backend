@@ -89,7 +89,7 @@ export type UpdateBatchProductInstaleap = {
 };
 
 /**
- * Interface for product inventory in Instaleap catalog
+ * Interface for product catalogs in Instaleap catalog
  */
 export interface CreateCatalogInstaleap {
   product: {
