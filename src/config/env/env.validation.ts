@@ -126,10 +126,6 @@ export const envValidationSchema = Joi.object({
     .uri()
     .required()
     .description('E-Commerce Instaleap URL'),
-  BASE_CLOUDFLARE_IMG: Joi.string()
-    .uri()
-    .required()
-    .description('Base Cloudflare image URL'),
   CLOUDFLARE_IMAGE_PREFIX: Joi.string()
     .uri()
     .required()
@@ -153,7 +149,7 @@ export const envValidationSchema = Joi.object({
     .required()
     .description('Instaleap base URL'),
 
-  CLOUDFLARE_BASE_URL: Joi.string()
+  CLOUDFLARE_API_BASE_URL: Joi.string()
     .uri()
     .required()
     .description('Cloudflare base URL'),

@@ -36,7 +36,7 @@ export class ExternalApiService {
   private readonly shopilamaApiBaseUrl: string;
   private readonly eCommerceInstaleapApiBaseUrl: string;
 
-  private readonly cloudflareBaseUrl: string;
+  private readonly cloudflareImageDns: string;
   private readonly cloudflareAccountId: string;
   private readonly cloudflareApiToken: string;
 
@@ -61,7 +61,7 @@ export class ExternalApiService {
       this.envService.eCommerceInstaleapApiBaseUrl;
     this.chatGptUrl = this.envService.chatGptUrl;
     this.chatGptApiKey = this.envService.chatGptApiKey;
-    this.cloudflareBaseUrl = this.envService.cloudflareBaseUrl;
+    this.cloudflareImageDns = this.envService.cloudflareImageDns;
     this.cloudflareAccountId = this.envService.cloudflareAccountId;
     this.cloudflareApiToken = this.envService.cloudflareApiToken;
     this.instaleapBaseUrl = this.envService.instaleapBaseUrl;
@@ -613,7 +613,7 @@ export class ExternalApiService {
 
       const { data } = await lastValueFrom(
         this.httpService.post(
-          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1`,
+          `${this.cloudflareImageDns}/${this.cloudflareAccountId}/images/v1`,
           formData,
           {
             headers: {
@@ -660,7 +660,7 @@ export class ExternalApiService {
     try {
       const { data } = await lastValueFrom(
         this.httpService.get(
-          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1/batch_token`,
+          `${this.cloudflareImageDns}/${this.cloudflareAccountId}/images/v1/batch_token`,
           {
             headers: {
               Authorization: `Bearer ${this.cloudflareApiToken}`,
@@ -706,7 +706,7 @@ export class ExternalApiService {
     try {
       const { data } = await lastValueFrom(
         this.httpService.delete(
-          `${this.cloudflareBaseUrl}/${this.cloudflareAccountId}/images/v1/${imageId}`,
+          `${this.cloudflareImageDns}/${this.cloudflareAccountId}/images/v1/${imageId}`,
           {
             headers: {
               Authorization: `Bearer ${this.cloudflareApiToken}`,

@@ -198,16 +198,12 @@ export class EnvService {
     );
   }
 
-  get baseCloudflareImg(): string {
-    return this.configService.get<string>(ConfigKeys.BASE_CLOUDFLARE_IMG);
-  }
-
   get cloudflareImagePrefix(): string {
     return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_PREFIX);
   }
 
   get cloudflareBaseUrl(): string {
-    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_BASE_URL);
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_API_BASE_URL);
   }
 
   get cloudflareAccountId(): string {
