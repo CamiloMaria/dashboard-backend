@@ -28,10 +28,11 @@ import { WebProductImage } from '../entities/shop/web-product-image.entity';
 import { DataSource } from 'typeorm';
 import { ModuleRef } from '@nestjs/core';
 import { ProductImageService } from './product-image.service';
-
+import { EnvService } from 'src/config/env/env.service';
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
+  private readonly imageBaseUrl: string;
 
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
@@ -50,7 +51,10 @@ export class ProductService {
     private readonly productMapper: ProductMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly moduleRef: ModuleRef,
-  ) {}
+    private readonly envService: EnvService,
+  ) {
+    this.imageBaseUrl = this.envService.cloudflareImageBaseUrl;
+  }
 
   /**
    * Fetch products with pagination and search filters
@@ -404,8 +408,11 @@ export class ProductService {
   ): Promise<CreateProductResultDto[]> {
     const results: CreateProductResultDto[] = [];
 
+    // Create new set to remove duplicates
+    const uniqueSkus = [...new Set(skus)];
+
     // Process each SKU in sequence
-    for (const sku of skus) {
+    for (const sku of uniqueSkus) {
       try {
         // Check if product already exists
         const existingProduct = await this.webProductRepository.findOne({
@@ -481,7 +488,11 @@ export class ProductService {
     }
 
     // Create success products in Instaleap
-    const successProducts = results.filter((result) => result.success);
+    // Filter out products that already exist and are new
+    const successProducts = results.filter(
+      (result) =>
+        result.success && result.status === ProductCreationStatus.CREATED,
+    );
     if (successProducts.length > 0) {
       // Process products in batches of 1000
       for (let i = 0; i < successProducts.length; i += 1000) {
@@ -498,9 +509,12 @@ export class ProductService {
           products: batchProducts.map(({ product, sku }) => ({
             sku,
             name: product.title,
-            photosUrl: product.images.map(
-              (image) => `${image.src_cloudflare}/base}`,
-            ),
+            photosUrl:
+              product.images && product.images.length > 0
+                ? product.images.map(
+                    (image) => `${image.src_cloudflare}/${this.imageBaseUrl}`,
+                  )
+                : [this.imageBaseUrl],
             unit: product.unmanejo,
             description: product.description_instaleap,
             brand: product.brand,

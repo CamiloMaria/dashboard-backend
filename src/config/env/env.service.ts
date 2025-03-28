@@ -202,6 +202,10 @@ export class EnvService {
     return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_PREFIX);
   }
 
+  get cloudflareImageBaseUrl(): string {
+    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_BASE_URL);
+  }
+
   get cloudflareBaseUrl(): string {
     return this.configService.get<string>(ConfigKeys.CLOUDFLARE_API_BASE_URL);
   }

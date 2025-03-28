@@ -272,7 +272,7 @@ export class ExternalApiService {
         this.httpService.post<CreateProductInstaleapResponse>(url, product, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -317,7 +317,7 @@ export class ExternalApiService {
         this.httpService.post<BatchInstaleapResponse>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -357,7 +357,7 @@ export class ExternalApiService {
         this.httpService.put<void>(url, product, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -401,7 +401,7 @@ export class ExternalApiService {
         this.httpService.put<BatchInstaleapResponse>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -437,7 +437,7 @@ export class ExternalApiService {
         this.httpService.post<void>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -478,7 +478,7 @@ export class ExternalApiService {
         this.httpService.post<BatchInstaleapResponse>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -518,7 +518,7 @@ export class ExternalApiService {
         this.httpService.put<void>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );
@@ -559,7 +559,7 @@ export class ExternalApiService {
         this.httpService.put<BatchInstaleapResponse>(url, body, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.instaleapApiKey}`,
+            'x-api-key': `${this.instaleapApiKey}`,
           },
         }),
       );

@@ -129,6 +129,10 @@ export const envValidationSchema = Joi.object({
   CLOUDFLARE_IMAGE_PREFIX: Joi.string()
     .required()
     .description('Cloudflare image prefix'),
+  CLOUDFLARE_IMAGE_BASE_URL: Joi.string()
+    .uri()
+    .required()
+    .description('Cloudflare image base URL'),
 
   PTLOG_API_BASE_URL: Joi.string()
     .uri()
