@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, IsEnum } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsEnum,
+  IsBoolean,
+} from 'class-validator';
 import { PaginationQueryDto } from './pagination-query.dto';
 import { Transform } from 'class-transformer';
 
@@ -15,6 +21,11 @@ export enum SortOrder {
   DESC = 'DESC',
 }
 
+export enum ProductStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
 export class ProductFilterDto extends PaginationQueryDto {
   @ApiProperty({
     description: 'Search by product SKU',
@@ -27,24 +38,24 @@ export class ProductFilterDto extends PaginationQueryDto {
   sku?: string;
 
   @ApiProperty({
-    description: 'Search by product title (partial match)',
+    description: 'Filter by product status',
     required: false,
-    example: 'Colchón',
+    enum: ProductStatus,
+    example: ProductStatus.ACTIVE,
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  title?: string;
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
 
   @ApiProperty({
-    description: 'Search by material/product number',
+    description: 'Filter by bigItem flag',
     required: false,
-    example: '2157909',
+    example: 'true',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  matnr?: string;
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  bigItem?: boolean;
 
   @ApiProperty({
     description: 'Unified search across SKU, title, and MATNR',

@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-
+import { ApiProperty, OmitType } from '@nestjs/swagger';
+import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 export class ProductImageResponseDto {
   @ApiProperty({ example: 53798 })
   id: number;
@@ -67,6 +67,10 @@ export class ProductCatalogResponseDto {
   updated_at: Date;
 }
 
+export class ProductGroupResponseDto extends OmitType(WebProductGroup, [
+  'products',
+]) {}
+
 export class ProductResponseDto {
   @ApiProperty({ example: 6928 })
   id: number;
@@ -94,12 +98,6 @@ export class ProductResponseDto {
 
   @ApiProperty({ example: '<div class="producto">...</div>' })
   description_instaleap: string;
-
-  @ApiProperty({ example: 'Colchones' })
-  category: string;
-
-  @ApiProperty({ example: 1 })
-  bigItems: number;
 
   @ApiProperty({
     example:
@@ -163,4 +161,7 @@ export class ProductResponseDto {
 
   @ApiProperty({ type: [ProductCatalogResponseDto] })
   catalogs: ProductCatalogResponseDto[];
+
+  @ApiProperty({ type: ProductGroupResponseDto })
+  category: ProductGroupResponseDto;
 }

@@ -7,9 +7,12 @@ import {
   OneToMany,
   Unique,
   Relation,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { WebProductImage } from './web-product-image.entity';
 import { WebCatalog } from './web-catalog.entity';
+import { WebProductGroup } from './web-product-group.entity';
 
 /**
  * Entity representing products in the web shop system
@@ -55,7 +58,7 @@ export class WebProduct {
   })
   status_new: number;
 
-  @Column({ length: 10, nullable: true })
+  @Column({ nullable: true })
   grupo: string;
 
   @Column({
@@ -137,6 +140,9 @@ export class WebProduct {
   @Column({ type: 'text', nullable: true })
   disabled_shops_comment: string;
 
+  @Column({ type: 'int', nullable: true })
+  group_id: number;
+
   // Relationships
   @OneToMany(() => WebProductImage, (image) => image.product, {
     cascade: true, // Appropriate for ON DELETE CASCADE constraint
@@ -147,4 +153,12 @@ export class WebProduct {
     cascade: true, // Appropriate for ON DELETE CASCADE constraint
   })
   catalogs: Relation<WebCatalog[]>;
+
+  @ManyToOne(() => WebProductGroup, (group) => group.products, {
+    onDelete: 'SET NULL',
+    nullable: true,
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'group_id' })
+  group: Relation<WebProductGroup>;
 }

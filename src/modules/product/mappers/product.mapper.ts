@@ -1,27 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { WebProduct } from '../entities/shop/web-product.entity';
-import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import {
   ProductResponseDto,
   ProductImageResponseDto,
   ProductCatalogResponseDto,
+  ProductGroupResponseDto,
 } from '../dto/product-response.dto';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DatabaseConnection } from '../../../config/database/constants';
 import { WebCatalog } from '../entities/shop/web-catalog.entity';
+import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 
 @Injectable()
 export class ProductMapper {
-  constructor(
-    @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
-    private readonly productGroupRepository: Repository<WebProductGroup>,
-  ) {}
-
   /**
    * Maps a WebProduct entity to a ProductResponseDto
    */
-  public async mapToDto(product: WebProduct): Promise<ProductResponseDto> {
+  public mapToDto(product: WebProduct): ProductResponseDto {
     // Parse JSON fields if they exist
     const searchKeywords = product.search_keywords
       ? this.tryParseJson(product.search_keywords, [])
@@ -41,11 +34,8 @@ export class ProductMapper {
     // Map catalogs
     const catalogs = this.mapCatalog(product.catalogs || []);
 
-    // Fetch product group data for category and bigItems
-    const { category, bigItems } = await this.fetchProductGroupData(
-      product.grupo,
-      product.centerd,
-    );
+    // Map group
+    const group = this.mapGroup(product.group);
 
     // Create main product DTO
     return {
@@ -57,8 +47,7 @@ export class ProductMapper {
       grupo: product.grupo,
       type_tax: product.type_tax,
       description_instaleap: product.description_instaleap,
-      category,
-      bigItems,
+      category: group,
       image_url: this.extractMainImageUrl(product.images_url, images),
       unit: product.unmanejo,
       isActive: !product.borrado,
@@ -116,28 +105,26 @@ export class ProductMapper {
     }));
   }
 
-  /**
-   * Fetches product group data for category and bigItems
-   */
-  private async fetchProductGroupData(
-    groupSap: string,
-    defaultBigItems: number,
-  ): Promise<{ category: string; bigItems: number }> {
-    let category = '';
-    let bigItems = defaultBigItems;
-
-    if (groupSap) {
-      const productGroup = await this.productGroupRepository.findOne({
-        where: { group_sap: groupSap },
-      });
-
-      if (productGroup) {
-        category = productGroup.cat_app || '';
-        bigItems = productGroup.bigItems;
-      }
-    }
-
-    return { category, bigItems };
+  private mapGroup(group: WebProductGroup): ProductGroupResponseDto {
+    return {
+      id: group.id,
+      group_sap: group.group_sap,
+      description: group.description,
+      depto: group.depto,
+      depto_sap: group.depto_sap,
+      area: group.area,
+      cat_app: group.cat_app,
+      shops_stock: group.shops_stock,
+      status: group.status,
+      level2: group.level2,
+      level3: group.level3,
+      level1_instaleap: group.level1_instaleap,
+      level2_instaleap: group.level2_instaleap,
+      level3_instaleap: group.level3_instaleap,
+      bigItems: group.bigItems,
+      delivery: group.delivery,
+      delivery_depto: group.delivery_depto,
+    };
   }
 
   /**

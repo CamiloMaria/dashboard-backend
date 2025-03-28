@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  Unique,
+  OneToMany,
+  Relation,
+} from 'typeorm';
+import { WebProduct } from './web-product.entity';
 
 /**
  * Entity representing product groups in the web shop system
@@ -56,4 +64,7 @@ export class WebProductGroup {
 
   @Column({ length: 45, nullable: true })
   delivery_depto: string;
+
+  @OneToMany(() => WebProduct, (product) => product.group)
+  products: Relation<WebProduct[]>;
 }

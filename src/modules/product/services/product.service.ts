@@ -8,6 +8,7 @@ import { ProductMapper } from '../mappers/product.mapper';
 import { PaginationMeta } from '../../../common/schemas/response.schema';
 import {
   ProductFilterDto,
+  ProductStatus,
   SortField,
   SortOrder,
 } from '../dto/product-filter.dto';
@@ -64,8 +65,8 @@ export class ProductService {
         page = 1,
         limit = 10,
         sku,
-        title,
-        matnr,
+        status,
+        bigItem,
         search,
         sortBy = SortField.TITLE,
         sortOrder = SortOrder.ASC,
@@ -98,16 +99,18 @@ export class ProductService {
           whereConditions.sku = Like(`%${sku}%`);
         }
 
-        if (title) {
+        if (status) {
           whereConditions =
             typeof whereConditions === 'object' ? whereConditions : {};
-          whereConditions.title = Like(`%${title}%`);
+          whereConditions.borrado = status !== ProductStatus.ACTIVE;
         }
 
-        if (matnr) {
+        if (bigItem) {
           whereConditions =
             typeof whereConditions === 'object' ? whereConditions : {};
-          whereConditions.matnr = Like(`%${matnr}%`);
+          whereConditions.group = {
+            bigItems: bigItem ? 1 : 0,
+          };
         }
       }
 
@@ -128,7 +131,7 @@ export class ProductService {
       // Find products matching the search criteria with pagination
       const products = await this.webProductRepository.find({
         where: whereConditions,
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
         skip: offset,
         take: validLimit,
         order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
@@ -146,8 +149,8 @@ export class ProductService {
       }
 
       // Map database entities to response DTOs
-      const items = await Promise.all(
-        products.map((product) => this.productMapper.mapToDto(product)),
+      const items = products.map((product) =>
+        this.productMapper.mapToDto(product),
       );
 
       // Create pagination metadata
