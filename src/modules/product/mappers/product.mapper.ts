@@ -29,10 +29,10 @@ export class ProductMapper {
       : [];
 
     // Map images
-    const images = this.mapImages(product.images || []);
+    const images = this.mapImages(product.images);
 
     // Map catalogs
-    const catalogs = this.mapCatalog(product.catalogs || []);
+    const catalogs = this.mapCatalog(product.catalogs);
 
     // Map group
     const group = this.mapGroup(product.group);
@@ -73,6 +73,8 @@ export class ProductMapper {
    * Maps WebProductImage entities to DTOs
    */
   private mapImages(images: any[]): ProductImageResponseDto[] {
+    if (!images || images.length === 0) return [];
+
     return images.map((image) => ({
       id: image.id,
       position: image.position,
@@ -90,6 +92,8 @@ export class ProductMapper {
    * Maps WebCatalog entities to catalogs DTOs
    */
   private mapCatalog(catalogs: WebCatalog[]): ProductCatalogResponseDto[] {
+    if (!catalogs || catalogs.length === 0) return [];
+
     return catalogs.map((catalog) => ({
       id: catalog.id,
       stock: catalog.stock,
@@ -106,6 +110,8 @@ export class ProductMapper {
   }
 
   private mapGroup(group: WebProductGroup): ProductGroupResponseDto {
+    if (!group) return null;
+
     return {
       id: group.id,
       group_sap: group.group_sap,

@@ -19,7 +19,6 @@ import {
   ProductCreationStatus,
 } from '../dto/create-product.dto';
 import { LoggerService } from 'src/config';
-import { WebProductGroup } from '../entities/shop/web-product-group.entity';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
 import { ProductPatchDto, ProductUpdateDto } from '../dto/product-update.dto';
 import { WebCatalog } from '../entities/shop/web-catalog.entity';
@@ -37,8 +36,6 @@ export class ProductService {
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly webProductRepository: Repository<WebProduct>,
-    @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
-    private readonly webProductGroupRepository: Repository<WebProductGroup>,
     @InjectRepository(WebCatalog, DatabaseConnection.SHOP)
     private readonly webCatalogRepository: Repository<WebCatalog>,
     @InjectRepository(WebProductImage, DatabaseConnection.SHOP)
@@ -191,7 +188,7 @@ export class ProductService {
       // Find all active products with their related images and catalogs
       const products = await this.webProductRepository.find({
         where: { borrado: false },
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
         take: 10,
       });
 
@@ -234,7 +231,7 @@ export class ProductService {
     try {
       const product = await this.webProductRepository.findOne({
         where: { num: id },
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
       });
 
       if (!product) {
@@ -330,11 +327,16 @@ export class ProductService {
       // Get product matnr from sku
       const product = await this.webProductRepository.findOne({
         select: {
+          num: true,
           title: true,
           matnr: true,
           grupo: true,
+          group: {
+            cat_app: true,
+          },
         },
         where: { sku },
+        relations: ['group'],
       });
 
       if (!product) {
@@ -347,13 +349,7 @@ export class ProductService {
         );
       }
 
-      // Get product category from grupo
-      const productCategory = await this.webProductGroupRepository.findOne({
-        select: { cat_app: true },
-        where: { group_sap: product.grupo },
-      });
-
-      if (!productCategory) {
+      if (!product.group) {
         throw new HttpException(
           {
             success: false,
@@ -369,7 +365,7 @@ export class ProductService {
       clásicos del pais, ¿crees que puedas ayudarnos con la creación de estas 
       keywords? Para esta tarea, te voy a dar el nombre del producto y sus 
       categorias. Producto: ${product.title} y las categorias a que pertenece 
-      son estas: ${productCategory.cat_app}. Necesito que solo me respondas con el 
+      son estas: ${product.group.cat_app}. Necesito que solo me respondas con el 
       resultado sea una lista seperada por comma.`;
 
       const content = await this.externalApiService.callChatGptApi([
@@ -610,7 +606,7 @@ export class ProductService {
       // Find the product with its catalogs
       const product = await this.webProductRepository.findOne({
         where: { num: productId },
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
       });
 
       if (!product) {
@@ -747,7 +743,7 @@ export class ProductService {
       // Reload the product with its updated relations
       const updatedProduct = await this.webProductRepository.findOne({
         where: { num: productId },
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
       });
 
       return this.productMapper.mapToDto(updatedProduct);
@@ -795,7 +791,7 @@ export class ProductService {
         // Find the product with its relationships
         const product = await this.webProductRepository.findOne({
           where: { num: productId },
-          relations: ['catalogs', 'images'],
+          relations: ['catalogs', 'images', 'group'],
         });
 
         if (!product) {
@@ -1196,7 +1192,7 @@ export class ProductService {
     try {
       const product = await this.webProductRepository.findOne({
         where: { sku },
-        relations: ['images', 'catalogs'],
+        relations: ['images', 'catalogs', 'group'],
       });
 
       if (!product) {
