@@ -28,6 +28,9 @@ export class WebSetProducts {
   })
   update_at: Date;
 
+  @Column({ type: 'tinyint', default: 1 })
+  status: number;
+
   @OneToMany(() => WebProductSetRelation, (relations) => relations.set)
   relations: Relation<WebProductSetRelation[]>;
 }
