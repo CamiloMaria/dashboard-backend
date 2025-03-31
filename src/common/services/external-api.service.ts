@@ -744,6 +744,23 @@ export class ExternalApiService {
     }
   }
 
+  async updateCatalogsBySkus(skus: string[]): Promise<boolean> {
+    try {
+      const url = `${this.eCommerceInstaleapApiBaseUrl}/catalog/update-by-skus`;
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, { skus }),
+      );
+
+      return response.status === 200 || response.status === 204;
+    } catch (error) {
+      this.logger.error(
+        `Error updating catalogs by skus: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
   async createProductSetBySetSku(setSku: string): Promise<boolean> {
     try {
       const url = `${this.eCommerceInstaleapApiBaseUrl}/product/create-product-set-by-set-sku`;

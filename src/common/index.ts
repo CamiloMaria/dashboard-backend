@@ -6,3 +6,5 @@ export * from './guards';
 export * from './decorators';
 export * from './filters';
 export * from './schemas';
+export * from './mappers';
+export * from './utils';

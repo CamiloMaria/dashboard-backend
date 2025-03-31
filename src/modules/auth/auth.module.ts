@@ -13,13 +13,11 @@ import { DatabaseConnection } from '../../config/database/constants';
 import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
-import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     ConfigModule,
     EnvModule,
-    CommonModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     HttpModule.register({
       timeout: 5000,

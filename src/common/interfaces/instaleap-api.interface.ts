@@ -1,4 +1,15 @@
 /**
+ * Interface for updating a product in Instaleap
+ */
+export interface SpecificationInstaleap {
+  title: string;
+  values: {
+    label: string;
+    value: string;
+  }[];
+}
+
+/**
  * Interface for creating a product in Instaleap
  */
 export interface CreateProductInstaleap {
@@ -23,13 +34,7 @@ export interface CreateProductInstaleap {
   bigItems?: number;
   relatedProducts?: string[];
   ingredients?: string[];
-  specifications?: {
-    title: string;
-    values: {
-      label: string;
-      value: string;
-    }[];
-  }[];
+  specifications?: SpecificationInstaleap[];
   nutritionalDetailsInformation?: {
     servingName: string;
     servingSize: number;

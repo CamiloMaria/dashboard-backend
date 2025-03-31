@@ -2,7 +2,10 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Like, Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
-import { ProductResponseDto } from '../dto/product-response.dto';
+import {
+  ProductResponseDto,
+  SpecificationResponseDto,
+} from '../dto/product-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { ProductMapper } from '../mappers/product.mapper';
 import { PaginationMeta } from '../../../common/schemas/response.schema';
@@ -28,6 +31,8 @@ import { DataSource } from 'typeorm';
 import { ModuleRef } from '@nestjs/core';
 import { ProductImageService } from './product-image.service';
 import { EnvService } from 'src/config/env/env.service';
+import { InstaleapMapper, tryParseJson } from 'src/common';
+
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
@@ -47,6 +52,7 @@ export class ProductService {
     private readonly dataSource: DataSource,
     private readonly logger: LoggerService,
     private readonly productMapper: ProductMapper,
+    private readonly instaleapMapper: InstaleapMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly moduleRef: ModuleRef,
     private readonly envService: EnvService,
@@ -636,14 +642,33 @@ export class ProductService {
           borrado_comment,
         } = updateDto.product;
 
+        const parsedSpecifications = tryParseJson<SpecificationResponseDto[]>(
+          specifications,
+          [],
+        );
+        const parsedSearchKeywords = tryParseJson<string[]>(
+          search_keywords,
+          [],
+        );
+
         // Update fields only if they are provided
         if (title !== undefined) product.title = title;
         if (description_instaleap !== undefined)
           product.description_instaleap = description_instaleap;
-        if (specifications !== undefined)
-          product.specifications = specifications;
-        if (search_keywords !== undefined)
-          product.search_keywords = search_keywords;
+        if (parsedSpecifications !== undefined) {
+          if (parsedSpecifications.length > 0) {
+            product.specifications = JSON.stringify(parsedSpecifications);
+          } else {
+            product.specifications = null;
+          }
+        }
+        if (parsedSearchKeywords !== undefined) {
+          if (parsedSearchKeywords.length > 0) {
+            product.search_keywords = JSON.stringify(parsedSearchKeywords);
+          } else {
+            product.search_keywords = null;
+          }
+        }
         if (security_stock !== undefined)
           product.security_stock = security_stock;
         if (click_multiplier !== undefined)
@@ -662,12 +687,17 @@ export class ProductService {
         if (
           title !== undefined ||
           description_instaleap !== undefined ||
-          borrado !== undefined
+          parsedSpecifications !== undefined ||
+          parsedSearchKeywords !== undefined
         ) {
           try {
             await this.externalApiService.updateProductInstaleap(product.sku, {
               name: title,
               description: description_instaleap,
+              specifications:
+                this.instaleapMapper.mapSpecifications(parsedSpecifications),
+              searchKeywords:
+                this.instaleapMapper.mapSearchKeywords(parsedSearchKeywords),
             });
           } catch (instaleapError) {
             this.logger.error(
@@ -719,29 +749,11 @@ export class ProductService {
 
           // Save the updated catalog
           await this.webCatalogRepository.save(catalog);
-
-          // Update catalog in Instaleap if needed
-          if (catalogUpdate.status !== undefined) {
-            try {
-              await this.externalApiService.updateCatalogInInstaleap(
-                {
-                  sku: catalog.sku,
-                  storeReference: catalog.pl,
-                },
-                {
-                  isActive: catalog.status === 1,
-                },
-              );
-            } catch (instaleapError) {
-              this.logger.error(
-                `Failed to update catalog ${catalog.sku}/${catalog.pl} in Instaleap: ${instaleapError.message}`,
-                instaleapError.stack,
-              );
-              // Continue with the process even if Instaleap update fails
-            }
-          }
         }
       }
+
+      // Update catalogs in Instaleap
+      this.externalApiService.updateCatalogsBySkus([product.sku]);
 
       // Reload the product with its updated relations
       const updatedProduct = await this.webProductRepository.findOne({

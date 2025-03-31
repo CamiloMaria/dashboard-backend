@@ -71,6 +71,14 @@ export class ProductGroupResponseDto extends OmitType(WebProductGroup, [
   'products',
 ]) {}
 
+export class SpecificationResponseDto {
+  @ApiProperty({ example: 'Marca' })
+  title: string;
+
+  @ApiProperty({ example: 'Epson' })
+  description: string;
+}
+
 export class ProductResponseDto {
   @ApiProperty({ example: 6928 })
   id: number;
@@ -157,7 +165,7 @@ export class ProductResponseDto {
       { title: 'Color', description: 'Negro' },
     ],
   })
-  specifications: { title: string; description: string }[];
+  specifications: SpecificationResponseDto[];
 
   @ApiProperty({ type: [ProductCatalogResponseDto] })
   catalogs: ProductCatalogResponseDto[];
