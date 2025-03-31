@@ -198,12 +198,10 @@ export class EnvService {
     );
   }
 
-  get cloudflareImagePrefix(): string {
-    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_PREFIX);
-  }
-
-  get cloudflareImageBaseUrl(): string {
-    return this.configService.get<string>(ConfigKeys.CLOUDFLARE_IMAGE_BASE_URL);
+  get cloudflareDefaultImageUrl(): string {
+    return this.configService.get<string>(
+      ConfigKeys.CLOUDFLARE_DEFAULT_IMAGE_URL,
+    );
   }
 
   get cloudflareBaseUrl(): string {

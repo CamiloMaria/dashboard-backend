@@ -233,7 +233,7 @@ export class ProductImageService {
         }
 
         const idCloudflare = uploadResult.result.id;
-        const srcCloudflare = `${this.envService.cloudflareImagePrefix}/${idCloudflare}`;
+        const srcCloudflare = `${this.envService.cloudflareImageDns}/${idCloudflare}`;
 
         newImage.id_cloudflare = idCloudflare;
         newImage.src_cloudflare = srcCloudflare;
@@ -456,7 +456,7 @@ export class ProductImageService {
       }
 
       const idCloudflare = uploadResult.result.id;
-      const srcCloudflare = `${this.envService.cloudflareImagePrefix}/${idCloudflare}`;
+      const srcCloudflare = `${this.envService.cloudflareImageDns}/${idCloudflare}`;
 
       newImage.id_cloudflare = idCloudflare;
       newImage.src_cloudflare = srcCloudflare;

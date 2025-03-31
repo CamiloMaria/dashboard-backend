@@ -31,7 +31,8 @@ import { EnvService } from 'src/config/env/env.service';
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
-  private readonly imageBaseUrl: string;
+  private readonly imageDefaultUrl: string;
+  private readonly imageDNS: string;
 
   constructor(
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
@@ -50,7 +51,8 @@ export class ProductService {
     private readonly moduleRef: ModuleRef,
     private readonly envService: EnvService,
   ) {
-    this.imageBaseUrl = this.envService.cloudflareImageBaseUrl;
+    this.imageDefaultUrl = this.envService.cloudflareDefaultImageUrl;
+    this.imageDNS = this.envService.cloudflareImageDns;
   }
 
   /**
@@ -508,9 +510,10 @@ export class ProductService {
             photosUrl:
               product.images && product.images.length > 0
                 ? product.images.map(
-                    (image) => `${image.src_cloudflare}/${this.imageBaseUrl}`,
+                    (image) =>
+                      `${image.src_cloudflare}/${this.imageDefaultUrl}`,
                   )
-                : [this.imageBaseUrl],
+                : [this.imageDefaultUrl],
             unit: product.unmanejo,
             description: product.description_instaleap,
             brand: product.brand,
