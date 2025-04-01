@@ -36,6 +36,32 @@ import { InstaleapMapper, tryParseJson } from 'src/common';
 @Injectable()
 export class ProductService {
   private readonly DEFAULT_STORE = 'PL09';
+  // Track the status of the keyword generation task
+  private keywordGenerationStatus: {
+    isRunning: boolean;
+    startTime: Date;
+    endTime?: Date;
+    totalProducts: number;
+    processedProducts: number;
+    successCount: number;
+    failedCount: number;
+    lastProcessedSku?: string;
+    batchSize: number;
+    concurrencyLevel?: number;
+    performanceStats?: {
+      apiResponseTimes: number[];
+      averageResponseTime: number;
+      consecutiveErrors: number;
+      lastErrorTime?: Date;
+      adaptiveDelayMs: number;
+    };
+  } | null = null;
+
+  // In-progress processing tasks
+  private pendingKeywordTasks: Map<string, Promise<string[]>> = new Map();
+
+  // Flag to request pause
+  private pauseRequested = false;
   private readonly imageDefaultUrl: string;
   private readonly imageDNS: string;
 
@@ -323,12 +349,91 @@ export class ProductService {
   }
 
   /**
-   * Generate SEO keywords for a product using ChatGPT
-   * @param productTitle The title of the product
-   * @param productCategory The category of the product
-   * @returns Comma-separated list of SEO keywords
+   * Track API response times and update adaptive delay
+   * @param responseTimeMs Time it took to get a response from the API
+   * @param isError Whether the request resulted in an error
+   */
+  private updateApiPerformanceStats(
+    responseTimeMs: number,
+    isError: boolean,
+  ): void {
+    if (!this.keywordGenerationStatus?.isRunning) return;
+
+    // Initialize performance stats if not already done
+    if (!this.keywordGenerationStatus.performanceStats) {
+      this.keywordGenerationStatus.performanceStats = {
+        apiResponseTimes: [],
+        averageResponseTime: 0,
+        consecutiveErrors: 0,
+        adaptiveDelayMs: 500, // Start with a moderate delay
+      };
+    }
+
+    const stats = this.keywordGenerationStatus.performanceStats;
+
+    // Track response time
+    stats.apiResponseTimes.push(responseTimeMs);
+
+    // Keep only the last 20 response times for calculating the average
+    if (stats.apiResponseTimes.length > 20) {
+      stats.apiResponseTimes.shift();
+    }
+
+    // Calculate average response time
+    stats.averageResponseTime =
+      stats.apiResponseTimes.reduce((sum, time) => sum + time, 0) /
+      stats.apiResponseTimes.length;
+
+    // Update consecutive errors count
+    if (isError) {
+      stats.consecutiveErrors++;
+      stats.lastErrorTime = new Date();
+
+      // Implement exponential backoff for delays when errors occur
+      stats.adaptiveDelayMs = Math.min(
+        stats.adaptiveDelayMs * 2,
+        30000, // Max 30 seconds delay
+      );
+    } else {
+      stats.consecutiveErrors = 0;
+
+      // Gradually reduce delay if successful
+      if (stats.adaptiveDelayMs > 500) {
+        stats.adaptiveDelayMs = Math.max(
+          stats.adaptiveDelayMs * 0.8,
+          500, // Min 500ms delay
+        );
+      }
+    }
+  }
+
+  /**
+   * Get the appropriate delay between API calls based on performance
+   * @returns Delay in milliseconds
+   */
+  private getAdaptiveDelay(): number {
+    const stats = this.keywordGenerationStatus?.performanceStats;
+
+    if (!stats) return 1000; // Default delay
+
+    // If there have been recent consecutive errors, use the adaptive delay
+    if (stats.consecutiveErrors > 0) {
+      return stats.adaptiveDelayMs;
+    }
+
+    // Otherwise, calculate a delay based on the average response time
+    // Aim for a reasonable throughput without overwhelming the API
+    return Math.max(500, Math.min(stats.averageResponseTime * 0.5, 5000));
+  }
+
+  /**
+   * Generate keywords for a product using ChatGPT with performance tracking
+   * @param generateDto The data to use for generation
+   * @returns Array of keywords
    */
   async generateKeywords(generateDto: GenerateKeywordsDto): Promise<string[]> {
+    const startTime = Date.now();
+
     try {
       const { sku } = generateDto;
 
@@ -384,8 +489,16 @@ export class ProductService {
       const keywords = content.split(',').map((keyword) => keyword.trim());
 
       // Add matnr to keywords
-      return [product.matnr, ...keywords];
+      const result = [product.matnr, ...keywords];
+
+      // Update performance stats
+      this.updateApiPerformanceStats(Date.now() - startTime, false);
+
+      return result;
     } catch (error) {
+      // Update performance stats with error
+      this.updateApiPerformanceStats(Date.now() - startTime, true);
+
       if (error instanceof HttpException) {
         throw error;
       }
@@ -738,7 +851,11 @@ export class ProductService {
           }
 
           // Update status comment if provided
-          if (catalogUpdate.status_comment !== undefined) {
+          if (
+            catalogUpdate.status_comment !== undefined &&
+            catalogUpdate.status_comment !== null &&
+            catalogUpdate.status_comment !== ''
+          ) {
             catalog.status_comment = catalogUpdate.status_comment;
           }
 
@@ -968,6 +1085,7 @@ export class ProductService {
       // Find the product first to make sure it exists
       const product = await this.webProductRepository.findOne({
         where: { sku },
+        relations: ['images'],
       });
 
       if (!product) {
@@ -1033,13 +1151,112 @@ export class ProductService {
       if (updateData.images?.add?.length) {
         this.logger.log(`Adding ${updateData.images.add.length} new images`);
 
+        /**
+         * Auto-positioning strategy for images without position information:
+         * 1. Find the highest position number among existing images
+         * 2. For each image without a position, assign position = (highest + n) where n starts at 1
+         * 3. Validate that there are no conflicts between:
+         *    - New images and other new images (duplicate positions)
+         *    - New images and existing images that aren't being deleted
+         * 4. Process uploads with the assigned positions
+         */
+
+        // Determine the next available position for any images that don't have a position
+        let nextPosition = 1;
+
+        // Create a set of existing positions
+        const existingPositions = new Set<number>();
+        if (product.images && product.images.length > 0) {
+          product.images.forEach((img) => existingPositions.add(img.position));
+          nextPosition =
+            Math.max(...product.images.map((img) => img.position)) + 1;
+        }
+
+        this.logger.log(
+          `Next available position for images without position: ${nextPosition}`,
+        );
+
+        // Handle files without positions
+        const filesToUpload = updateData.images.add.map((item) => {
+          if (item.position === null) {
+            this.logger.log(
+              `Auto-assigning position ${nextPosition} to file ${item.file.originalname}`,
+            );
+            const result = {
+              position: nextPosition,
+              file: item.file,
+            };
+            nextPosition++;
+            return result;
+          }
+          return item;
+        });
+
+        // Check for duplicate positions among uploaded files
+        const positionMap = new Map<number, string>();
+        const hasDuplicates = filesToUpload.some((item) => {
+          if (positionMap.has(item.position)) {
+            this.logger.warn(
+              `Duplicate position ${item.position} detected for files: ${positionMap.get(item.position)} and ${item.file.originalname}`,
+            );
+            return true;
+          }
+          positionMap.set(item.position, item.file.originalname);
+          return false;
+        });
+
+        // Check for conflicts with existing images
+        const conflictsWithExisting = filesToUpload.some((item) => {
+          // Skip if this position is going to be deleted
+          if (updateData.images?.delete?.includes(item.position)) {
+            return false;
+          }
+
+          // Check if position exists but isn't being deleted
+          if (existingPositions.has(item.position)) {
+            this.logger.warn(
+              `Position ${item.position} from file ${item.file.originalname} conflicts with an existing image position that isn't being deleted`,
+            );
+            return true;
+          }
+          return false;
+        });
+
+        if (hasDuplicates) {
+          this.logger.error(
+            `Cannot proceed with upload due to duplicate positions. Resubmit with unique positions or without specifying positions to auto-assign.`,
+          );
+          throw new HttpException(
+            {
+              success: false,
+              message: 'Duplicate image positions detected',
+              error: 'DUPLICATE_POSITIONS',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (conflictsWithExisting) {
+          this.logger.error(
+            `Cannot proceed with upload due to conflicts with existing image positions. Delete the existing image at the conflicting position first, or use a different position.`,
+          );
+          throw new HttpException(
+            {
+              success: false,
+              message: 'Image position conflicts with existing images',
+              error: 'POSITION_CONFLICT',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
         const addResults = {
           success: true,
           count: 0,
           failedPositions: [],
         };
 
-        for (const add of updateData.images.add) {
+        for (const add of filesToUpload) {
           try {
             // Prepare the file for processing
             // Add position to filename for easier identification
@@ -1047,12 +1264,8 @@ export class ProductService {
             const positionPrefix = `position_${add.position}_`;
 
             if (!originalName.startsWith(positionPrefix)) {
-              add.file.originalname = `${positionPrefix}${originalName}`;
+              add.file.originalname = `${positionPrefix}${sku}`;
             }
-
-            // Extract SKU from filename or use product SKU
-            const skuMatch = originalName.match(/[0-9]{9,13}/);
-            const sku = skuMatch ? skuMatch[0] : product.sku;
 
             // Process and upload the image
             const result = await productImageService.processAndUploadImage(
@@ -1235,5 +1448,739 @@ export class ProductService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Get the current status of the keyword generation task
+   * @returns Current status of the keyword generation task
+   */
+  getKeywordGenerationStatus(): {
+    isRunning: boolean;
+    progress: {
+      startTime: Date;
+      endTime?: Date;
+      totalProducts: number;
+      processedProducts: number;
+      successCount: number;
+      failedCount: number;
+      percentComplete: number;
+      lastProcessedSku?: string;
+      batchSize: number;
+      concurrencyLevel?: number;
+      estimatedTimeRemaining?: string;
+      cacheStats?: {
+        pendingTasksCount: number;
+      };
+      performance?: {
+        averageResponseTime: number;
+        consecutiveErrors: number;
+        lastErrorTime?: Date;
+        adaptiveDelayMs: number;
+        processingRate: number;
+      };
+    } | null;
+  } {
+    if (!this.keywordGenerationStatus) {
+      return { isRunning: false, progress: null };
+    }
+
+    const {
+      isRunning,
+      startTime,
+      endTime,
+      totalProducts,
+      processedProducts,
+      successCount,
+      failedCount,
+      lastProcessedSku,
+      batchSize,
+      concurrencyLevel,
+      performanceStats,
+    } = this.keywordGenerationStatus;
+
+    // Calculate percent complete
+    const percentComplete =
+      totalProducts > 0
+        ? Math.round((processedProducts / totalProducts) * 100)
+        : 0;
+
+    // Calculate estimated time remaining if task is running
+    let estimatedTimeRemaining: string | undefined;
+    if (isRunning && processedProducts > 0 && startTime) {
+      const elapsedMs = Date.now() - startTime.getTime();
+      const msPerProduct = elapsedMs / processedProducts;
+      const remainingProducts = totalProducts - processedProducts;
+      const remainingMs = msPerProduct * remainingProducts;
+
+      // Format remaining time in a human-readable format
+      if (remainingMs < 60000) {
+        // Less than a minute
+        estimatedTimeRemaining = `${Math.round(remainingMs / 1000)} seconds`;
+      } else if (remainingMs < 3600000) {
+        // Less than an hour
+        estimatedTimeRemaining = `${Math.round(remainingMs / 60000)} minutes`;
+      } else {
+        // Hours or more
+        const hours = Math.floor(remainingMs / 3600000);
+        const minutes = Math.round((remainingMs % 3600000) / 60000);
+        estimatedTimeRemaining = `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      }
+    }
+
+    // Add pending tasks information
+    const cacheStats = isRunning
+      ? {
+          pendingTasksCount: this.pendingKeywordTasks.size,
+        }
+      : undefined;
+
+    // Add performance statistics if available
+    let performance:
+      | {
+          averageResponseTime: number;
+          consecutiveErrors: number;
+          lastErrorTime?: Date;
+          adaptiveDelayMs: number;
+          processingRate: number;
+        }
+      | undefined;
+
+    if (performanceStats) {
+      // Calculate current processing rate (products per minute)
+      const elapsedMinutes = (Date.now() - startTime.getTime()) / 60000;
+      const processingRate =
+        elapsedMinutes > 0
+          ? Math.round((processedProducts / elapsedMinutes) * 100) / 100
+          : 0;
+
+      performance = {
+        averageResponseTime: Math.round(performanceStats.averageResponseTime),
+        consecutiveErrors: performanceStats.consecutiveErrors,
+        lastErrorTime: performanceStats.lastErrorTime,
+        adaptiveDelayMs: performanceStats.adaptiveDelayMs,
+        processingRate,
+      };
+    }
+
+    return {
+      isRunning,
+      progress: {
+        startTime,
+        endTime,
+        totalProducts,
+        processedProducts,
+        successCount,
+        failedCount,
+        percentComplete,
+        lastProcessedSku,
+        batchSize,
+        concurrencyLevel,
+        estimatedTimeRemaining,
+        cacheStats,
+        performance,
+      },
+    };
+  }
+
+  /**
+   * Generate and save keywords for all products in the database with optimized performance
+   * @param options Configuration options for the generation process
+   * @param username Username of the user generating the keywords
+   * @returns Summary of the operation
+   */
+  async generateKeywordsForAllProducts(
+    options: {
+      batchSize?: number;
+      concurrencyLevel?: number;
+      prioritizeCategories?: string[];
+    } = {},
+    username: string,
+  ): Promise<{
+    totalProducts: number;
+    processedProducts: number;
+    successCount: number;
+    failedProducts: { sku: string; reason: string }[];
+  }> {
+    try {
+      // Default options
+      const batchSize = options.batchSize || 20;
+      const concurrencyLevel = options.concurrencyLevel || 5;
+
+      // Check if a task is already running
+      if (this.keywordGenerationStatus?.isRunning) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'A keyword generation task is already running',
+            currentStatus: this.getKeywordGenerationStatus(),
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      // Reset pause flag
+      this.pauseRequested = false;
+
+      this.logger.log(
+        `Starting optimized generation of keywords for all products (batch size: ${batchSize}, concurrency: ${concurrencyLevel})`,
+        ProductService.name,
+      );
+
+      // Create a query to find products without keywords
+      const baseQuery = this.webProductRepository
+        .createQueryBuilder('product')
+        .select([
+          'product.num',
+          'product.sku',
+          'product.title',
+          'product.matnr',
+          'product.grupo',
+        ])
+        // .where('product.borrado = :borrado', { borrado: false });
+        .where(
+          "(product.search_keywords IS NULL OR product.search_keywords = '')",
+        );
+
+      // If prioritized categories are specified, prioritize those products
+      let prioritizedQuery = baseQuery;
+
+      if (options.prioritizeCategories?.length) {
+        prioritizedQuery = this.webProductRepository
+          .createQueryBuilder('product')
+          .select([
+            'product.num',
+            'product.sku',
+            'product.title',
+            'product.matnr',
+            'product.grupo',
+          ])
+          // .where('product.borrado = :borrado', { borrado: false })
+          .where(
+            "(product.search_keywords IS NULL OR product.search_keywords = '')",
+          )
+          .andWhere('product.grupo IN (:...categories)', {
+            categories: options.prioritizeCategories,
+          })
+          .orderBy('product.grupo');
+      }
+
+      // Get prioritized products count
+      const prioritizedCount = options.prioritizeCategories?.length
+        ? await prioritizedQuery.getCount()
+        : 0;
+
+      // Get total count of all products that need keywords
+      const totalProducts = await baseQuery.getCount();
+
+      this.logger.log(
+        `Found ${totalProducts} products that need keywords${
+          prioritizedCount ? ` (${prioritizedCount} prioritized)` : ''
+        }`,
+        ProductService.name,
+      );
+
+      // Initialize result tracking
+      const result = {
+        totalProducts,
+        processedProducts: 0,
+        successCount: 0,
+        failedProducts: [] as { sku: string; reason: string }[],
+      };
+
+      // Initialize status tracking
+      this.keywordGenerationStatus = {
+        isRunning: true,
+        startTime: new Date(),
+        totalProducts,
+        processedProducts: 0,
+        successCount: 0,
+        failedCount: 0,
+        batchSize,
+        concurrencyLevel,
+      };
+
+      // If no products need processing, return early
+      if (totalProducts === 0) {
+        this.logger.log(
+          'No products need keyword generation',
+          ProductService.name,
+        );
+        this.keywordGenerationStatus.isRunning = false;
+        this.keywordGenerationStatus.endTime = new Date();
+        return result;
+      }
+
+      // Process products in batches
+      let offset = 0;
+      let remainingProducts = totalProducts;
+
+      // First process prioritized products if any
+      if (prioritizedCount > 0) {
+        this.logger.log(
+          `Processing ${prioritizedCount} prioritized products first`,
+          ProductService.name,
+        );
+
+        let prioritizedOffset = 0;
+        while (prioritizedOffset < prioritizedCount) {
+          // Check if pause was requested
+          if (this.pauseRequested) {
+            this.logger.log(
+              'Keyword generation paused by user request',
+              ProductService.name,
+            );
+
+            // Wait until resumed or timeout after 1 hour
+            const pauseStart = Date.now();
+            while (this.pauseRequested && Date.now() - pauseStart < 3600000) {
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+
+            // If still paused after timeout, abort
+            if (this.pauseRequested) {
+              throw new Error(
+                'Keyword generation aborted due to extended pause',
+              );
+            }
+
+            this.logger.log('Keyword generation resumed', ProductService.name);
+          }
+
+          const currentBatchSize = Math.min(
+            batchSize,
+            prioritizedCount - prioritizedOffset,
+          );
+
+          // Get current batch of prioritized products
+          const products = await prioritizedQuery
+            .skip(prioritizedOffset)
+            .take(currentBatchSize)
+            .getMany();
+
+          this.logger.log(
+            `Processing batch of ${products.length} prioritized products (${prioritizedOffset + 1} to ${
+              prioritizedOffset + products.length
+            } of ${prioritizedCount})`,
+            ProductService.name,
+          );
+
+          // Process batch with controlled concurrency
+          await this.processProductBatch(
+            products,
+            concurrencyLevel,
+            username,
+            result,
+          );
+
+          prioritizedOffset += currentBatchSize;
+          offset = prioritizedOffset; // Update main offset
+          remainingProducts -= products.length;
+        }
+      }
+
+      // Process remaining products
+      if (remainingProducts > 0) {
+        // Exclude already processed prioritized products
+        const remainingQuery = this.webProductRepository
+          .createQueryBuilder('product')
+          .select([
+            'product.num',
+            'product.sku',
+            'product.title',
+            'product.matnr',
+            'product.grupo',
+          ])
+          // .where('product.borrado = :borrado', { borrado: false })
+          .where(
+            "(product.search_keywords IS NULL OR product.search_keywords = '')",
+          );
+
+        // Exclude prioritized categories if they were already processed
+        if (options.prioritizeCategories?.length) {
+          remainingQuery.andWhere('product.grupo NOT IN (:...categories)', {
+            categories: options.prioritizeCategories,
+          });
+        }
+
+        // Group by category for better AI results and caching
+        remainingQuery.orderBy('product.grupo');
+
+        while (offset < totalProducts) {
+          // Check if pause was requested
+          if (this.pauseRequested) {
+            this.logger.log(
+              'Keyword generation paused by user request',
+              ProductService.name,
+            );
+
+            // Wait until resumed or timeout after 1 hour
+            const pauseStart = Date.now();
+            while (this.pauseRequested && Date.now() - pauseStart < 3600000) {
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+
+            // If still paused after timeout, abort
+            if (this.pauseRequested) {
+              throw new Error(
+                'Keyword generation aborted due to extended pause',
+              );
+            }
+
+            this.logger.log('Keyword generation resumed', ProductService.name);
+          }
+
+          const currentBatchSize = Math.min(batchSize, totalProducts - offset);
+
+          // Get current batch
+          const products = await remainingQuery
+            .skip(offset - prioritizedCount) // Adjust for prioritized products
+            .take(currentBatchSize)
+            .getMany();
+
+          this.logger.log(
+            `Processing batch of ${products.length} products (${offset + 1} to ${
+              offset + products.length
+            } of ${totalProducts})`,
+            ProductService.name,
+          );
+
+          // Process batch with controlled concurrency
+          await this.processProductBatch(
+            products,
+            concurrencyLevel,
+            username,
+            result,
+          );
+
+          offset += products.length;
+
+          // Log progress
+          this.logger.log(
+            `Completed ${result.processedProducts}/${totalProducts} products. Success: ${
+              result.successCount
+            }, Failed: ${result.failedProducts.length}`,
+            ProductService.name,
+          );
+
+          // Add a small delay between batches to avoid overwhelming the database
+          // but much shorter than before
+          if (offset < totalProducts) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      // Clear any residual tasks
+      this.pendingKeywordTasks.clear();
+
+      this.logger.log(
+        `Keyword generation completed. Total: ${totalProducts}, Processed: ${
+          result.processedProducts
+        }, Success: ${result.successCount}, Failed: ${
+          result.failedProducts.length
+        }`,
+        ProductService.name,
+      );
+
+      // Update status to complete
+      this.keywordGenerationStatus.isRunning = false;
+      this.keywordGenerationStatus.endTime = new Date();
+
+      return result;
+    } catch (error) {
+      // Update status on error
+      if (this.keywordGenerationStatus) {
+        this.keywordGenerationStatus.isRunning = false;
+        this.keywordGenerationStatus.endTime = new Date();
+      }
+
+      // Clear any residual tasks
+      this.pendingKeywordTasks.clear();
+
+      this.logger.error(
+        `Keyword generation process failed: ${error.message}`,
+        error.stack,
+        ProductService.name,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Keyword generation process failed',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Process a batch of products with controlled concurrency
+   * @param products Products to process
+   * @param concurrencyLevel Maximum number of concurrent operations
+   * @param username Username of the user generating the keywords
+   * @param result Result tracking object
+   */
+  private async processProductBatch(
+    products: WebProduct[],
+    concurrencyLevel: number,
+    username: string,
+    result: {
+      processedProducts: number;
+      successCount: number;
+      failedProducts: { sku: string; reason: string }[];
+    },
+  ): Promise<void> {
+    // Group products by category for more efficient processing
+    const productsByCategory: Map<string, WebProduct[]> = new Map();
+
+    for (const product of products) {
+      const category = product.grupo || 'unknown';
+      if (!productsByCategory.has(category)) {
+        productsByCategory.set(category, []);
+      }
+      productsByCategory.get(category)!.push(product);
+    }
+
+    // Process each category group
+    for (const [category, categoryProducts] of productsByCategory.entries()) {
+      this.logger.debug(
+        `Processing ${categoryProducts.length} products in category ${category}`,
+        ProductService.name,
+      );
+
+      // Process all products with concurrency control
+      const batchResults = await this.processBatchWithConcurrency(
+        categoryProducts,
+        concurrencyLevel,
+        async (product) => {
+          // Check if there's already a pending task for this product
+          if (this.pendingKeywordTasks.has(product.sku)) {
+            try {
+              const keywords = await this.pendingKeywordTasks.get(product.sku)!;
+              return { product, keywords };
+            } catch (error) {
+              // If pending task fails, remove it and try again
+              this.pendingKeywordTasks.delete(product.sku);
+              throw error;
+            }
+          }
+
+          // Apply adaptive delay based on API performance
+          const delayMs = this.getAdaptiveDelay();
+          if (delayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+
+          // Create a new task with retry mechanism
+          const generateWithRetry = async (
+            retryCount = 0,
+          ): Promise<string[]> => {
+            try {
+              return await this.generateKeywords({
+                sku: product.sku,
+              });
+            } catch (error) {
+              // Retry with exponential backoff if error isn't 404 (not found)
+              if (
+                retryCount < 3 &&
+                !(
+                  error instanceof HttpException &&
+                  error.getStatus() === HttpStatus.NOT_FOUND
+                )
+              ) {
+                const backoffMs = Math.pow(2, retryCount) * 1000;
+                this.logger.warn(
+                  `Retrying keyword generation for ${product.sku} after ${backoffMs}ms (attempt ${retryCount + 1}/3)`,
+                  ProductService.name,
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
+                return generateWithRetry(retryCount + 1);
+              }
+              throw error;
+            }
+          };
+
+          const task = generateWithRetry();
+          this.pendingKeywordTasks.set(product.sku, task);
+
+          try {
+            const keywords = await task;
+            return { product, keywords };
+          } finally {
+            // Remove the task when done
+            this.pendingKeywordTasks.delete(product.sku);
+          }
+        },
+      );
+
+      // Prepare bulk update
+      const updates: { id: number; keywords: string }[] = [];
+
+      // Process results
+      for (const item of batchResults) {
+        result.processedProducts++;
+        this.keywordGenerationStatus!.processedProducts++;
+
+        if (item.error) {
+          result.failedProducts.push({
+            sku: categoryProducts[batchResults.indexOf(item)].sku,
+            reason: item.error.message,
+          });
+          this.keywordGenerationStatus!.failedCount++;
+          continue;
+        }
+
+        const { product, keywords } = item.result;
+        this.keywordGenerationStatus!.lastProcessedSku = product.sku;
+        updates.push({
+          id: product.num,
+          keywords: keywords.join(', '),
+        });
+
+        result.successCount++;
+        this.keywordGenerationStatus!.successCount++;
+      }
+
+      // Perform bulk update if any successful results
+      if (updates.length > 0) {
+        try {
+          // Use query builder for more efficient bulk update
+          await this.dataSource.transaction(async (manager) => {
+            for (const update of updates) {
+              await manager.update(
+                WebProduct,
+                { num: update.id },
+                {
+                  search_keywords: update.keywords,
+                  userUpd: username,
+                },
+              );
+            }
+          });
+
+          this.logger.debug(
+            `Bulk updated ${updates.length} products with keywords`,
+            ProductService.name,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Error during bulk update: ${error.message}`,
+            error.stack,
+            ProductService.name,
+          );
+
+          // Mark affected products as failed
+          for (const update of updates) {
+            const product = products.find((p) => p.num === update.id);
+            if (product) {
+              result.failedProducts.push({
+                sku: product.sku,
+                reason: `Database update failed: ${error.message}`,
+              });
+              result.successCount--;
+              this.keywordGenerationStatus!.successCount--;
+              this.keywordGenerationStatus!.failedCount++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Process items concurrently with a controlled concurrency limit
+   * @param items Array of items to process
+   * @param concurrencyLimit Maximum number of concurrent operations
+   * @param processor Function to process each item
+   * @returns Results of processing each item
+   */
+  private async processBatchWithConcurrency<T, R>(
+    items: T[],
+    concurrencyLimit: number,
+    processor: (item: T, index: number) => Promise<R>,
+  ): Promise<{ result: R; error?: Error }[]> {
+    const results: { result?: R; error?: Error }[] = new Array(items.length);
+    let activePromises = 0;
+    let nextIndex = 0;
+
+    // Process items in batches with controlled concurrency
+    return new Promise((resolve) => {
+      const processNext = async () => {
+        const currentIndex = nextIndex++;
+
+        // Check if we've processed all items
+        if (currentIndex >= items.length) {
+          // If no active promises, we're done
+          if (activePromises === 0) {
+            resolve(results as { result: R; error?: Error }[]);
+          }
+          return;
+        }
+
+        activePromises++;
+        try {
+          // Process the current item
+          const result = await processor(items[currentIndex], currentIndex);
+          results[currentIndex] = { result };
+        } catch (error) {
+          // Store error but continue processing
+          results[currentIndex] = {
+            error: error as Error,
+            result: undefined as unknown as R,
+          };
+        } finally {
+          activePromises--;
+          // Process the next item
+          processNext();
+        }
+      };
+
+      // Start processing up to the concurrency limit
+      const initialBatch = Math.min(concurrencyLimit, items.length);
+      for (let i = 0; i < initialBatch; i++) {
+        processNext();
+      }
+    });
+  }
+
+  /**
+   * Request to pause the running keyword generation process
+   */
+  pauseKeywordGeneration(): { success: boolean; message: string } {
+    if (!this.keywordGenerationStatus?.isRunning) {
+      return {
+        success: false,
+        message: 'No keyword generation task is currently running',
+      };
+    }
+
+    this.pauseRequested = true;
+    return {
+      success: true,
+      message: 'Pause requested for keyword generation task',
+    };
+  }
+
+  /**
+   * Resume a paused keyword generation process
+   */
+  resumeKeywordGeneration(): { success: boolean; message: string } {
+    if (!this.keywordGenerationStatus?.isRunning) {
+      return {
+        success: false,
+        message: 'No keyword generation task is currently running',
+      };
+    }
+
+    if (!this.pauseRequested) {
+      return {
+        success: false,
+        message: 'Keyword generation task is not paused',
+      };
+    }
+
+    this.pauseRequested = false;
+    return { success: true, message: 'Keyword generation task resumed' };
   }
 }

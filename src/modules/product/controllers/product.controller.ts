@@ -50,6 +50,11 @@ import { Public } from 'src/common/decorators';
 import { ProductPatchDto } from '../dto/product-update.dto';
 import { ProductDeleteDto } from '../dto/product-delete.dto';
 import { AtomicProductUpdateDto } from '../dto/atomic-product-update.dto';
+import { LoggerService } from 'src/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { WebProduct } from '../entities/shop/web-product.entity';
+import { DatabaseConnection } from 'src/config/database/constants';
 
 @ApiTags('Products')
 @ApiCookieAuth()
@@ -58,6 +63,9 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly responseService: ResponseService,
+    private readonly logger: LoggerService,
+    @InjectRepository(WebProduct, DatabaseConnection.SHOP)
+    private readonly webProductRepository: Repository<WebProduct>,
   ) {}
 
   @Get('health')
@@ -276,6 +284,528 @@ export class ProductController {
     }
   }
 
+  @Post('generate-keywords-all')
+  @ApiOperation({
+    summary: 'Generate keywords for all products without existing keywords',
+    description:
+      'Processes all products in batches and generates keywords using AI with optimized performance',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        batchSize: {
+          type: 'number',
+          description: 'Number of products to process in each batch',
+          default: 20,
+        },
+        concurrencyLevel: {
+          type: 'number',
+          description:
+            'Maximum number of concurrent product processing operations',
+          default: 5,
+        },
+        prioritizeCategories: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description:
+            'List of product categories to prioritize for processing',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 202,
+    description: 'Keyword generation task started',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' },
+                totalProducts: { type: 'number' },
+                options: {
+                  type: 'object',
+                  properties: {
+                    batchSize: { type: 'number' },
+                    concurrencyLevel: { type: 'number' },
+                    prioritizeCategories: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Task already running',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async generateKeywordsForAllProducts(
+    @Body()
+    options: {
+      batchSize?: number;
+      concurrencyLevel?: number;
+      prioritizeCategories?: string[];
+    },
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      // Get the authenticated user from the request
+      const username = req.user?.username || 'system';
+
+      // Validate and set defaults for options
+      const validatedOptions = {
+        batchSize:
+          options.batchSize && options.batchSize > 0
+            ? Math.min(options.batchSize, 50)
+            : 20,
+        concurrencyLevel:
+          options.concurrencyLevel && options.concurrencyLevel > 0
+            ? Math.min(options.concurrencyLevel, 10)
+            : 5,
+        prioritizeCategories: options.prioritizeCategories || [],
+      };
+
+      // Get current status to check if a task is already running
+      const currentStatus = this.productService.getKeywordGenerationStatus();
+      if (currentStatus.isRunning) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'A keyword generation task is already running',
+            currentStatus,
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      // Start the process asynchronously
+      // We don't await here because we want to return a response immediately
+      this.productService
+        .generateKeywordsForAllProducts(validatedOptions, username)
+        .then((result) => {
+          this.logger.log(
+            `Keyword generation task completed. Processed ${result.processedProducts} products. Success: ${result.successCount}, Failed: ${result.failedProducts.length}`,
+            ProductController.name,
+          );
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Keyword generation task failed: ${error.message}`,
+            error.stack,
+            ProductController.name,
+          );
+        });
+
+      // Count products that need processing
+      const query = this.webProductRepository
+        .createQueryBuilder('product')
+        .where('product.borrado = :borrado', { borrado: false })
+        .andWhere(
+          "(product.search_keywords IS NULL OR product.search_keywords = '')",
+        );
+
+      let prioritizedCount = 0;
+      if (validatedOptions.prioritizeCategories.length > 0) {
+        prioritizedCount = await this.webProductRepository
+          .createQueryBuilder('product')
+          .where('product.borrado = :borrado', { borrado: false })
+          .andWhere(
+            "(product.search_keywords IS NULL OR product.search_keywords = '')",
+          )
+          .andWhere('product.grupo IN (:...categories)', {
+            categories: validatedOptions.prioritizeCategories,
+          })
+          .getCount();
+      }
+
+      const totalProducts = await query.getCount();
+
+      return this.responseService.success(
+        {
+          message: `Optimized keyword generation task started`,
+          totalProducts,
+          prioritizedProducts:
+            prioritizedCount > 0 ? prioritizedCount : undefined,
+          options: validatedOptions,
+        },
+        'Keyword generation process initiated successfully',
+        {
+          statusCode: HttpStatus.ACCEPTED,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to start keyword generation task',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('generate-keywords-pause')
+  @ApiOperation({
+    summary: 'Pause a running keyword generation task',
+    description:
+      'Requests the current running task to pause after completing the current batch',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pause request processed',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No task running',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  async pauseKeywordGeneration() {
+    try {
+      const result = this.productService.pauseKeywordGeneration();
+
+      if (!result.success) {
+        return this.responseService.error(result.message, 'BAD_REQUEST', {
+          statusCode: HttpStatus.BAD_REQUEST,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return this.responseService.success(
+        result,
+        'Keyword generation pause request processed',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to pause keyword generation',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('generate-keywords-resume')
+  @ApiOperation({
+    summary: 'Resume a paused keyword generation task',
+    description: 'Resumes a previously paused keyword generation task',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resume request processed',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No task paused',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  async resumeKeywordGeneration() {
+    try {
+      const result = this.productService.resumeKeywordGeneration();
+
+      if (!result.success) {
+        return this.responseService.error(result.message, 'BAD_REQUEST', {
+          statusCode: HttpStatus.BAD_REQUEST,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return this.responseService.success(
+        result,
+        'Keyword generation resume request processed',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to resume keyword generation',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('generate-keywords-status')
+  @ApiOperation({
+    summary: 'Get the current status of the keyword generation task',
+    description:
+      'Returns detailed information about the progress of the keyword generation task',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Status retrieved successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                isRunning: { type: 'boolean' },
+                isPaused: { type: 'boolean', nullable: true },
+                progress: {
+                  type: 'object',
+                  nullable: true,
+                  properties: {
+                    startTime: { type: 'string', format: 'date-time' },
+                    endTime: {
+                      type: 'string',
+                      format: 'date-time',
+                      nullable: true,
+                    },
+                    totalProducts: { type: 'number' },
+                    processedProducts: { type: 'number' },
+                    successCount: { type: 'number' },
+                    failedCount: { type: 'number' },
+                    percentComplete: { type: 'number' },
+                    lastProcessedSku: { type: 'string', nullable: true },
+                    batchSize: { type: 'number' },
+                    concurrencyLevel: { type: 'number', nullable: true },
+                    estimatedTimeRemaining: { type: 'string', nullable: true },
+                    cacheStats: {
+                      type: 'object',
+                      nullable: true,
+                      properties: {
+                        productCacheSize: { type: 'number' },
+                        categoryCacheSize: { type: 'number' },
+                        pendingTasksCount: { type: 'number' },
+                      },
+                    },
+                    performance: {
+                      type: 'object',
+                      nullable: true,
+                      properties: {
+                        averageResponseTime: { type: 'number' },
+                        consecutiveErrors: { type: 'number' },
+                        lastErrorTime: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                        },
+                        adaptiveDelayMs: { type: 'number' },
+                        processingRate: { type: 'number' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async getKeywordGenerationStatus() {
+    try {
+      const status = this.productService.getKeywordGenerationStatus();
+
+      // Add isPaused property
+      const response = {
+        ...status,
+        isPaused: status.isRunning
+          ? this.productService['pauseRequested']
+          : null,
+      };
+
+      return this.responseService.success(
+        response,
+        'Keyword generation status retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to retrieve keyword generation status',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('generate-keywords-stats')
+  @ApiOperation({
+    summary: 'Get detailed statistics about the keyword generation process',
+    description: 'Returns information about the keyword generation performance',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/BaseResponse' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                pendingTasksCount: { type: 'number' },
+                performanceStats: {
+                  type: 'object',
+                  nullable: true,
+                  properties: {
+                    averageResponseTime: { type: 'number' },
+                    consecutiveErrors: { type: 'number' },
+                    adaptiveDelayMs: { type: 'number' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  async getKeywordGenerationStats() {
+    try {
+      // Get current status
+      const status = this.productService.getKeywordGenerationStatus();
+
+      // Extract relevant performance information
+      const pendingTasksCount =
+        this.productService['pendingKeywordTasks']?.size || 0;
+      const performanceStats = status.progress?.performance
+        ? {
+            averageResponseTime:
+              status.progress.performance.averageResponseTime,
+            consecutiveErrors: status.progress.performance.consecutiveErrors,
+            adaptiveDelayMs: status.progress.performance.adaptiveDelayMs,
+          }
+        : null;
+
+      return this.responseService.success(
+        {
+          pendingTasksCount,
+          performanceStats,
+          isRunning: status.isRunning,
+          isPaused: status.isRunning
+            ? this.productService['pauseRequested']
+            : null,
+        },
+        'Keyword generation statistics retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to retrieve keyword generation statistics',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Post()
   @ApiOperation({
     summary: 'Create products from a list of SKUs',
@@ -398,6 +928,7 @@ export class ProductController {
       // Get the authenticated user from the request
       const username = req.user?.username || 'system';
 
+      return;
       const updatedProduct = await this.productService.updateProduct(
         id,
         updateDto,
@@ -508,7 +1039,7 @@ export class ProductController {
   @ApiOperation({
     summary: 'Update a product and its images in a single transaction',
     description:
-      'Process multiple operations in a single atomic transaction: update product metadata, delete images, reorder images, and upload new images.',
+      'Process multiple operations in a single atomic transaction: update product metadata, delete images, reorder images, and upload new images. When uploading images without position information in the filename (format: position_X_filename.jpg), positions will be automatically assigned based on the next available position.',
   })
   @UseInterceptors(FilesInterceptor('files'))
   @ApiConsumes('multipart/form-data')
@@ -587,13 +1118,11 @@ export class ProductController {
           product: data.metadata,
           images: {
             delete: data.imagesToDelete,
-            reorder: data.imagesToReorder?.map((item) => ({
-              currentPosition: item.currentPosition,
-              newPosition: item.newPosition,
-            })),
+            reorder: data.imagesToReorder,
             // Process files based on their fieldname to identify their position
             add: files?.map((file) => {
-              // Extract position from the filename, default to the end if not specified
+              // Extract position from the filename, default to null if not specified
+              // Positions will be auto-assigned in the service for files with null position
               const positionMatch =
                 file.originalname.match(/position[_-]?(\d+)/i);
               const position = positionMatch
