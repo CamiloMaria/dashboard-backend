@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule, EnvModule, DatabaseModule } from './config';
-import { HealthModule, ProductModule } from './modules';
+import { HealthModule, OrderModule, ProductModule } from './modules';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_PROVIDERS } from './app.provider';
 import { CommonModule } from './common/common.module';
@@ -22,6 +22,7 @@ import { CommonModule } from './common/common.module';
     ProductModule,
     HealthModule,
     AuthModule,
+    OrderModule,
   ],
   controllers: [],
   providers: [...APP_PROVIDERS],
