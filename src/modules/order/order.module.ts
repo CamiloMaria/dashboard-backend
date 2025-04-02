@@ -9,6 +9,7 @@ import {
 import { OrderService } from './services/order.service';
 import { OrderController } from './controllers/order.controller';
 import { DatabaseConnection } from 'src/config';
+import { OrderMapper } from './mappers/order.mapper';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { DatabaseConnection } from 'src/config';
     ),
   ],
   controllers: [OrderController],
-  providers: [OrderService],
+  providers: [OrderService, OrderMapper],
   exports: [TypeOrmModule],
 })
 export class OrderModule {}

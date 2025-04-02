@@ -2,50 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { WebOrder } from '../entities/oracle';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { DatabaseConnection } from 'src/config';
+import { DatabaseConnection, LoggerService } from 'src/config';
 import { PaginationMeta } from 'src/common/schemas/response.schema';
 import { OrderFilterDto, SortField, SortOrder } from '../dto';
 import { IOrderResponse } from '../interfaces/order-response.interface';
+import { WebArticles } from '../entities/oracle/web-articles.entity';
+import { WebTransactions } from '../entities/oracle/web-transactions.entity';
+import { WebFactures } from '../entities/oracle/web-factures.entity';
+import { OrderMapper } from '../mappers/order.mapper';
 
 @Injectable()
 export class OrderService {
-  private readonly orderColumns = [
-    'ORDER.ID',
-    'ORDER.ORDEN',
-    'ORDER.RNC',
-    'ORDER.NOMBRE',
-    'ORDER.APELLIDOS',
-    'ORDER.DIRECCION',
-    'ORDER.CIUDAD',
-    'ORDER.COMENTARIO',
-    'ORDER.TELEFONO',
-    'ORDER.EMAIL',
-    'ORDER.PAIS',
-    'ORDER.ESTATUS',
-    'ORDER.TOTAL',
-    'ORDER.ITBIS',
-    'ORDER.FECHA_REGISTRO',
-    'ORDER.HORA_REGISTRO',
-    'ORDER.TARJETA',
-    'ORDER.PTLOG',
-    'ORDER.CLUB',
-    'ORDER.WEB',
-    'ORDER.TIENDA',
-    'ORDER.NCF',
-    'ORDER.TIPO_NCF',
-    'ORDER.ESTATUS_DELIV',
-    'ORDER.RNC_NAME',
-    'ORDER.OTRO_NOMBRE',
-    'ORDER.OTRO_NOMBRE_DOC',
-    'ORDER.ORDEN_REFERENCIA',
-    'ORDER.ORDEN_DESDE',
-    'ORDER.TOTAL_DESCUENTO',
-    'ORDER.PRINT',
-  ];
-
   constructor(
     @InjectRepository(WebOrder, DatabaseConnection.ORACLE)
     private readonly webOrderRepository: Repository<WebOrder>,
+    private readonly orderMapper: OrderMapper,
+    private readonly logger: LoggerService,
   ) {}
 
   async findAll(
@@ -67,29 +39,59 @@ export class OrderService {
     const offset = (validPage - 1) * validLimit;
 
     const queryBuilder = this.webOrderRepository.createQueryBuilder('ORDER');
-    queryBuilder.select(`DISTINCT ${this.orderColumns.join(', ')}`);
+
+    // Select order columns and add left joins for related entities
+    queryBuilder
+      .select(this.orderMapper.getAllColumns().join(', '))
+      .leftJoin(WebArticles, 'ARTICLES', 'ARTICLES.ORDEN = ORDER.ORDEN')
+      .leftJoin(
+        WebTransactions,
+        'TRANSACTIONS',
+        'TRANSACTIONS.ORDEN = ORDER.ORDEN',
+      )
+      .leftJoin(WebFactures, 'FACTURES', 'FACTURES.ORDEN = ORDER.ORDEN');
 
     if (search) {
       queryBuilder.andWhere(`LOWER(ORDER.ORDEN) like LOWER('%${search}%')`);
     }
 
-    const totalItems = await queryBuilder.getCount();
+    // Get total count for orders only (not including relations)
+    const countQueryBuilder =
+      this.webOrderRepository.createQueryBuilder('ORDER');
+    if (search) {
+      countQueryBuilder.andWhere(
+        `LOWER(ORDER.ORDEN) like LOWER('%${search}%')`,
+      );
+    }
+    const totalItems = await countQueryBuilder.getCount();
 
     queryBuilder.orderBy(`ORDER.${sortBy.toUpperCase()}`, sortOrder);
 
     const sql = queryBuilder.getSql();
 
-    const rows = await this.webOrderRepository.query(
-      `SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (${sql}) a WHERE ROWNUM <= ${validLimit + offset}) WHERE rnum > ${offset}`,
-    );
+    try {
+      const rawRows = await this.webOrderRepository.query(
+        `SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (${sql}) a WHERE ROWNUM <= ${validLimit + offset}) WHERE rnum > ${offset}`,
+      );
 
-    const meta: PaginationMeta = {
-      totalItems,
-      currentPage: page,
-      itemsPerPage: limit,
-      totalPages: Math.ceil(totalItems / validLimit),
-    };
+      // Use the OrderMapper to process the raw data
+      const items = this.orderMapper.mapRawRowsToOrderResponses(rawRows);
 
-    return { items: rows, meta };
+      const meta: PaginationMeta = {
+        totalItems,
+        currentPage: validPage,
+        itemsPerPage: validLimit,
+        totalPages: Math.ceil(totalItems / validLimit),
+      };
+
+      return { items, meta };
+    } catch (error) {
+      this.logger.error(
+        `Error retrieving orders: ${error.message}`,
+        error.stack,
+        OrderService.name,
+      );
+      throw error;
+    }
   }
 }
