@@ -1,17 +1,10 @@
-import {
-  BaseEntity,
-  Column,
-  Entity,
-  OneToMany,
-  PrimaryColumn,
-  Relation,
-} from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryColumn, Relation } from 'typeorm';
 import { WebTransactions } from './web-transactions.entity';
 import { WebFactures } from './web-factures.entity';
 import { WebArticles } from './web-articles.entity';
 
 @Entity({ name: 'WEB_ORDENES', schema: 'INTRANET' })
-export class WebOrder extends BaseEntity {
+export class WebOrder {
   @PrimaryColumn({ type: 'varchar', width: 20 })
   ID: string;
 

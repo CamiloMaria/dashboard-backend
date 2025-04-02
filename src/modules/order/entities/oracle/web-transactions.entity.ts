@@ -1,5 +1,4 @@
 import {
-  BaseEntity,
   Column,
   Entity,
   JoinColumn,
@@ -10,7 +9,7 @@ import {
 import { WebOrder } from './web-order.entity';
 
 @Entity({ name: 'WEB_TRANSACIONES', schema: 'INTRANET' })
-export class WebTransactions extends BaseEntity {
+export class WebTransactions {
   @PrimaryColumn({ type: 'varchar', length: 20 })
   ID: string;
 

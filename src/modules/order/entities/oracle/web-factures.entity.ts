@@ -4,13 +4,12 @@ import {
   PrimaryColumn,
   ManyToOne,
   JoinColumn,
-  BaseEntity,
   Relation,
 } from 'typeorm';
 import { WebOrder } from './web-order.entity';
 
 @Entity({ name: 'WEB_FACTURAS', schema: 'INTRANET' })
-export class WebFactures extends BaseEntity {
+export class WebFactures {
   @PrimaryColumn({ type: 'varchar', length: 20 })
   ID: string;
 

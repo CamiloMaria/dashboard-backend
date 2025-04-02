@@ -5,12 +5,11 @@ import {
   ManyToOne,
   JoinColumn,
   Relation,
-  BaseEntity,
 } from 'typeorm';
 import { WebOrder } from './web-order.entity';
 
 @Entity({ name: 'WEB_ARTICULOS', schema: 'INTRANET' })
-export class WebArticles extends BaseEntity {
+export class WebArticles {
   @PrimaryColumn('varchar', { length: 20 })
   ID: string;
 
