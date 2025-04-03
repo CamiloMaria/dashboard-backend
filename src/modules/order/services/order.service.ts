@@ -229,4 +229,23 @@ export class OrderService {
     // Execute query without bind parameters
     return this.webOrderRepository.query(queryBuilder.getSql());
   }
+
+  /**
+   * Change order status to print from PRINT 1 to PRINT 0 if forcePrint is true
+   * @param orderNumber - The order number to change
+   * @param forcePrint - Whether to force print the order
+   */
+  async changeOrderStatusToPrint(orderNumber: string, forcePrint: boolean) {
+    if (!forcePrint) return;
+
+    const order = await this.webOrderRepository.findOne({
+      where: { ORDEN: orderNumber },
+    });
+
+    if (order) {
+      await this.webOrderRepository.update(order.ORDEN, {
+        PRINT: 0,
+      });
+    }
+  }
 }

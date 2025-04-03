@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * Data transfer object for print order request
@@ -20,4 +20,13 @@ export class PrintOrderDto {
   @IsNotEmpty({ message: 'Spooler is required' })
   @IsString({ message: 'Spooler must be a string' })
   spooler: string;
+
+  @ApiProperty({
+    description: 'Force print',
+    default: false,
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  forcePrint?: boolean = false;
 }

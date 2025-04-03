@@ -217,7 +217,10 @@ export class OrderController {
 
       // Extract user email from authenticated request
       const { email } = request.user;
-      const { orderNumber, spooler } = printOrderDto;
+      const { orderNumber, spooler, forcePrint } = printOrderDto;
+
+      // change order status to print from PRINT 1 to PRINT 0 if forcePrint is true
+      await this.orderService.changeOrderStatusToPrint(orderNumber, forcePrint);
 
       // Call external API service to send the order to print
       const printResponse = await this.externalApiService.sendOrderToPrint(
