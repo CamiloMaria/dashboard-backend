@@ -172,16 +172,16 @@ export class ProductService {
         order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
       });
 
-      if (!products || products.length === 0) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'No products found matching your search criteria',
-            error: 'NOT_FOUND',
-          },
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      // if (!products || products.length === 0) {
+      //   throw new HttpException(
+      //     {
+      //       success: false,
+      //       message: 'No products found matching your search criteria',
+      //       error: 'NOT_FOUND',
+      //     },
+      //     HttpStatus.NOT_FOUND,
+      //   );
+      // }
 
       // Map database entities to response DTOs
       const items = products.map((product) =>
@@ -628,10 +628,7 @@ export class ProductService {
             name: product.title,
             photosUrl:
               product.images && product.images.length > 0
-                ? product.images.map(
-                    (image) =>
-                      `${image.src_cloudflare}/${this.imageDefaultUrl}`,
-                  )
+                ? product.images.map((image) => `${image.src_cloudflare}/base`)
                 : [this.imageDefaultUrl],
             unit: product.unmanejo,
             description: product.description_instaleap,

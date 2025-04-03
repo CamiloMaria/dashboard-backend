@@ -126,16 +126,16 @@ export class PromotionService {
         }
       });
 
-      if (!promotions || promotions.length === 0) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'No promotions found matching your search criteria',
-            error: 'NOT_FOUND',
-          },
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      // if (!promotions || promotions.length === 0) {
+      //   throw new HttpException(
+      //     {
+      //       success: false,
+      //       message: 'No promotions found matching your search criteria',
+      //       error: 'NOT_FOUND',
+      //     },
+      //     HttpStatus.NOT_FOUND,
+      //   );
+      // }
 
       // Map database entities to response DTOs
       const items = await Promise.all(

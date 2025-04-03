@@ -150,16 +150,16 @@ export class ProductSetService {
         ],
       });
 
-      if (!productSets || productSets.length === 0) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'No product sets found matching your search criteria',
-            error: 'NOT_FOUND',
-          },
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      // if (!productSets || productSets.length === 0) {
+      //   throw new HttpException(
+      //     {
+      //       success: false,
+      //       message: 'No product sets found matching your search criteria',
+      //       error: 'NOT_FOUND',
+      //     },
+      //     HttpStatus.NOT_FOUND,
+      //   );
+      // }
 
       // Map database entities to response DTOs with related products
       const items = await Promise.all(
