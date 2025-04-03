@@ -24,6 +24,8 @@ import {
   UpdateBatchProductInstaleap,
   CreateBatchCatalogInstaleap,
   UpdateBatchCatalogInstaleap,
+  SpoolerResponse,
+  PrintOrderRequest,
 } from '../interfaces';
 import { CloudflareResponse } from '../interfaces/cloudflare-api.interface';
 import { getQueryStringParameters } from '../utils/string.utils';
@@ -35,6 +37,7 @@ export class ExternalApiService {
   private readonly intranetApiBaseUrl: string;
   private readonly shopilamaApiBaseUrl: string;
   private readonly eCommerceInstaleapApiBaseUrl: string;
+  private readonly ptlogApiBaseUrl: string;
 
   private readonly cloudflareImageDns: string;
   private readonly cloudflareAccountId: string;
@@ -66,6 +69,7 @@ export class ExternalApiService {
     this.cloudflareApiToken = this.envService.cloudflareApiToken;
     this.instaleapBaseUrl = this.envService.instaleapBaseUrl;
     this.instaleapApiKey = this.envService.instaleapApiKey;
+    this.ptlogApiBaseUrl = this.envService.ptlogApiBaseUrl;
   }
 
   /**
@@ -780,6 +784,79 @@ export class ExternalApiService {
         {
           success: false,
           message: 'Failed to create product set in Instaleap',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Get a spooler by email
+   * @param email The email address of the spooler
+   * @returns The response from the spooler API
+   * @throws HttpException if the API call fails
+   */
+  async getSpooler(email: string): Promise<SpoolerResponse> {
+    try {
+      const url = `${this.ptlogApiBaseUrl}/print-order/spooler`;
+
+      const response = await firstValueFrom(
+        this.httpService.get(url, { params: { email } }),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error getting spooler: ${error.message}`, error.stack);
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get spooler',
+          error: error.message,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * Send an order to print using the external PTLog API
+   * @param orderNumber The order number to print
+   * @param email User's email address
+   * @param spooler Spooler name for printing
+   * @returns The response from the print API
+   * @throws HttpException if the API call fails
+   */
+  async sendOrderToPrint(
+    orderNumber: string,
+    email: string,
+    spooler: string,
+  ): Promise<string> {
+    try {
+      const url = `${this.ptlogApiBaseUrl}/print-order/send-to-print`;
+
+      const body: PrintOrderRequest = {
+        orderNumber,
+        email,
+        spooler,
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post<string>(url, body),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Error sending order to print: ${error.message}`,
+        error.stack,
+      );
+
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to send order to print',
           error: error.message,
         },
         HttpStatus.BAD_GATEWAY,

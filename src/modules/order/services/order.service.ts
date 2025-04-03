@@ -20,6 +20,13 @@ export class OrderService {
     private readonly logger: LoggerService,
   ) {}
 
+  /**
+   * Find all orders with pagination
+   * @param filterDto - The filter DTO containing pagination and search parameters
+   * @returns An object containing the paginated orders and metadata
+   * @throws HttpException if an error occurs during the operation
+   */
+
   async findAll(
     filterDto: OrderFilterDto,
   ): Promise<{ items: IOrderResponse[]; meta: PaginationMeta }> {
