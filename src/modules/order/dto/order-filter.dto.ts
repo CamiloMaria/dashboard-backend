@@ -25,9 +25,9 @@ export class OrderFilterDto extends PaginationQueryDto {
   store?: string;
 
   @ApiProperty({
-    description: 'Unified search across SKU, title, and MATNR',
+    description: 'Search across order number, RNC, and email fields',
     required: false,
-    example: 'colchon',
+    example: 'example@email.com',
   })
   @IsOptional()
   @IsString()

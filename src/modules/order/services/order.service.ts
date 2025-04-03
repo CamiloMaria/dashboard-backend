@@ -110,28 +110,46 @@ export class OrderService {
     const queryBuilder = this.webOrderRepository.createQueryBuilder('ORDER');
     queryBuilder.select(this.orderMapper.getOrderColumns().join(', '));
 
-    // Add search condition if provided
+    // Add unified search condition if provided
     if (search) {
-      queryBuilder.andWhere(`LOWER(ORDER.ORDEN) like LOWER('%${search}%')`);
+      // Escape single quotes in the search pattern to prevent SQL injection
+      const escapedSearch = search.replace(/'/g, "''");
+      const searchPattern = `%${escapedSearch}%`;
+      queryBuilder.andWhere(
+        `(LOWER(NVL(ORDER.ORDEN, '')) like LOWER('%${searchPattern}%') OR 
+          LOWER(NVL(ORDER.RNC, '')) like LOWER('%${searchPattern}%') OR 
+          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%'))`,
+      );
     }
 
     // Add store filter if provided
     if (store) {
-      queryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+      // Escape single quotes in store to prevent SQL injection
+      const escapedStore = store.replace(/'/g, "''");
+      queryBuilder.andWhere(`ORDER.TIENDA = '${escapedStore}'`);
     }
 
     // Get total count for orders (for pagination)
     const countQueryBuilder =
       this.webOrderRepository.createQueryBuilder('ORDER');
+
+    // Add same search conditions to count query
     if (search) {
+      // Escape single quotes in the search pattern to prevent SQL injection
+      const escapedSearch = search.replace(/'/g, "''");
+      const searchPattern = `%${escapedSearch}%`;
       countQueryBuilder.andWhere(
-        `LOWER(ORDER.ORDEN) like LOWER('%${search}%')`,
+        `(LOWER(NVL(ORDER.ORDEN, '')) like LOWER('%${searchPattern}%') OR 
+          LOWER(NVL(ORDER.RNC, '')) like LOWER('%${searchPattern}%') OR 
+          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%'))`,
       );
     }
 
     // Add the same store filter to count query
     if (store) {
-      countQueryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+      // Escape single quotes in store to prevent SQL injection
+      const escapedStore = store.replace(/'/g, "''");
+      countQueryBuilder.andWhere(`ORDER.TIENDA = '${escapedStore}'`);
     }
 
     const totalItems = await countQueryBuilder.getCount();
@@ -141,9 +159,14 @@ export class OrderService {
 
     // Execute the paginated query
     const sql = queryBuilder.getSql();
-    const rawRows = await this.webOrderRepository.query(
-      `SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (${sql}) a WHERE ROWNUM <= ${limit + offset}) WHERE rnum > ${offset}`,
-    );
+
+    // Create the pagination query with direct value insertion
+    const maxRowNum = limit + offset;
+    const minRowNum = offset;
+    const paginationSql = `SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (${sql}) a WHERE ROWNUM <= ${maxRowNum}) WHERE rnum > ${minRowNum}`;
+
+    // Execute the raw query without bind parameters
+    const rawRows = await this.webOrderRepository.query(paginationSql);
 
     // Map rows to order objects (without related entities)
     const orders = this.orderMapper.mapBasicOrdersFromRows(rawRows);
@@ -161,9 +184,6 @@ export class OrderService {
     if (!orderKeys.length) {
       return [];
     }
-
-    // Format order keys for SQL IN clause
-    const formattedOrderKeys = orderKeys.map((key) => `'${key}'`).join(',');
 
     // Create query builder to fetch all related entities for these orders
     const queryBuilder = this.webOrderRepository.createQueryBuilder('ORDER');
@@ -184,15 +204,22 @@ export class OrderService {
         'TRANSACTIONS',
         'TRANSACTIONS.ORDEN = ORDER.ORDEN',
       )
-      .leftJoin(WebFactures, 'FACTURES', 'FACTURES.ORDEN = ORDER.ORDEN')
-      .where(`ORDER.ORDEN IN (${formattedOrderKeys})`);
+      .leftJoin(WebFactures, 'FACTURES', 'FACTURES.ORDEN = ORDER.ORDEN');
+
+    // Format order keys for SQL IN clause with proper escaping
+    const formattedOrderKeys = orderKeys
+      .map((key) => `'${key.replace(/'/g, "''")}'`)
+      .join(',');
+    queryBuilder.where(`ORDER.ORDEN IN (${formattedOrderKeys})`);
 
     // Add store filter if provided
     if (store) {
-      queryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+      // Escape single quotes in store to prevent SQL injection
+      const escapedStore = store.replace(/'/g, "''");
+      queryBuilder.andWhere(`ORDER.TIENDA = '${escapedStore}'`);
     }
 
-    // Execute query to get all related entities
+    // Execute query without bind parameters
     return this.webOrderRepository.query(queryBuilder.getSql());
   }
 }
