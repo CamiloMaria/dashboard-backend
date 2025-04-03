@@ -8,3 +8,4 @@ export * from './filters';
 export * from './schemas';
 export * from './mappers';
 export * from './utils';
+export * from './dto';

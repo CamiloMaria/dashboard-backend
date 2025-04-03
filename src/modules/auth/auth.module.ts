@@ -13,6 +13,7 @@ import { DatabaseConnection } from '../../config/database/constants';
 import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
+import { UserEntity } from './entities/intranet';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { JwtAuthGuard, RolesGuard } from '../../common/guards';
       }),
     }),
     TypeOrmModule.forFeature([WebUsersPermissions], DatabaseConnection.SHOP),
+    TypeOrmModule.forFeature([UserEntity], DatabaseConnection.INTRANET),
   ],
   controllers: [AuthController],
   providers: [

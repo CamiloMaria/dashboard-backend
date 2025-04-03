@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, IsEnum } from 'class-validator';
-import { PaginationQueryDto } from './pagination-query.dto';
+import { PaginationQueryDto } from 'src/common/dto';
 import { Transform } from 'class-transformer';
 
 export enum SortField {

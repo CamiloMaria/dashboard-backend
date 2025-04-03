@@ -52,7 +52,7 @@ export class AuthController {
    * A protected endpoint that requires authentication and specific page permissions
    * @returns User profile information
    */
-  @Get('profile')
+  @Get('user/profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePages('/')
   @ApiOperation({

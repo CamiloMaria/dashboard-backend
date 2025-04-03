@@ -1,6 +1,5 @@
 export * from './create-product.dto';
 export * from './create-product-set.dto';
-export * from './pagination-query.dto';
 export * from './generate-description.dto';
 export * from './product-set-item.dto';
 export * from './product-response.dto';
