@@ -16,6 +16,15 @@ export enum SortOrder {
 
 export class OrderFilterDto extends PaginationQueryDto {
   @ApiProperty({
+    description: 'Store code',
+    required: false,
+    example: 'PL08',
+  })
+  @IsOptional()
+  @IsString()
+  store?: string;
+
+  @ApiProperty({
     description: 'Unified search across SKU, title, and MATNR',
     required: false,
     example: 'colchon',

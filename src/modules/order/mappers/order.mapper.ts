@@ -92,6 +92,108 @@ export class OrderMapper {
   constructor(private readonly logger: LoggerService) {}
 
   /**
+   * Maps raw database rows to structured order responses with related entities
+   * @param rawRows - Raw database rows from the query
+   * @returns Array of order responses with nested related entities
+   */
+  public mapRawRowsToOrderResponses(rawRows: any[]): IOrderResponse[] {
+    this.logger.debug(
+      `Mapping ${rawRows.length} raw database rows to order responses`,
+      OrderMapper.name,
+    );
+
+    try {
+      // Process the raw data to group related entities
+      const ordersMap = new Map();
+
+      for (const row of rawRows) {
+        const orderKey = row.ORDEN;
+
+        if (!ordersMap.has(orderKey)) {
+          // Create new order entry without related entities
+          const orderData = {};
+          this.orderColumns.forEach((column) => {
+            const columnName = column.replace('ORDER.', '');
+            orderData[columnName] = row[columnName];
+          });
+
+          ordersMap.set(orderKey, {
+            ...orderData,
+            ARTICULOS: [],
+            TRANSACCIONES: [],
+            FACTURAS: [],
+          });
+        }
+
+        const orderEntry = ordersMap.get(orderKey);
+
+        // Add article if exists
+        if (row.ARTICLE_ID) {
+          const articleExists = orderEntry.ARTICULOS.some(
+            (a: Partial<WebArticles>) => a.ID === row.ARTICLE_ID,
+          );
+          if (!articleExists) {
+            const article: Partial<WebArticles> = {};
+            this.articlesColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('ARTICLE_', '');
+              article[originalName] = row[fieldName];
+            });
+            orderEntry.ARTICULOS.push(article);
+          }
+        }
+
+        // Add transaction if exists
+        if (row.TRANSACTION_ID) {
+          const transactionExists = orderEntry.TRANSACCIONES.some(
+            (t: Partial<WebTransactions>) => t.ID === row.TRANSACTION_ID,
+          );
+          if (!transactionExists) {
+            const transaction: Partial<WebTransactions> = {};
+            this.transactionsColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('TRANSACTION_', '');
+              transaction[originalName] = row[fieldName];
+            });
+            orderEntry.TRANSACCIONES.push(transaction);
+          }
+        }
+
+        // Add facture if exists
+        if (row.FACTURE_ID) {
+          const factureExists = orderEntry.FACTURAS.some(
+            (f: Partial<WebFactures>) => f.ID === row.FACTURE_ID,
+          );
+          if (!factureExists) {
+            const facture: Partial<WebFactures> = {};
+            this.facturesColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('FACTURE_', '');
+              facture[originalName] = row[fieldName];
+            });
+            orderEntry.FACTURAS.push(facture);
+          }
+        }
+      }
+
+      const items = Array.from(ordersMap.values()) as IOrderResponse[];
+      this.logger.debug(
+        `Successfully mapped data into ${items.length} order responses`,
+        OrderMapper.name,
+      );
+
+      return items;
+    } catch (error) {
+      this.logger.error(
+        `Error mapping raw rows to order responses: ${error.message}`,
+        error.stack,
+        OrderMapper.name,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Maps basic order data from raw database rows without related entities
    * @param rawRows - Raw database rows from the query
    * @returns Array of basic order data

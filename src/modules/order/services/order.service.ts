@@ -27,6 +27,7 @@ export class OrderService {
       page,
       limit,
       search,
+      store,
       sortBy = SortField.REGISTERED_AT,
       sortOrder = SortOrder.DESC,
     } = filterDto;
@@ -45,6 +46,7 @@ export class OrderService {
         validLimit,
         offset,
         search,
+        store,
         sortBy,
         sortOrder,
       );
@@ -63,8 +65,10 @@ export class OrderService {
 
       // Step 2: Fetch related entities for these orders
       const orderKeys = orders.map((order) => order.ORDEN);
-      const relatedEntitiesRows =
-        await this.findRelatedEntitiesForOrders(orderKeys);
+      const relatedEntitiesRows = await this.findRelatedEntitiesForOrders(
+        orderKeys,
+        store,
+      );
 
       // Step 3: Associate related entities with their parent orders
       const items = this.orderMapper.associateRelatedEntitiesWithOrders(
@@ -98,6 +102,7 @@ export class OrderService {
     limit: number,
     offset: number,
     search: string,
+    store: string,
     sortBy: SortField,
     sortOrder: SortOrder,
   ): Promise<{ orders: IOrderResponse[]; totalItems: number }> {
@@ -110,6 +115,11 @@ export class OrderService {
       queryBuilder.andWhere(`LOWER(ORDER.ORDEN) like LOWER('%${search}%')`);
     }
 
+    // Add store filter if provided
+    if (store) {
+      queryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+    }
+
     // Get total count for orders (for pagination)
     const countQueryBuilder =
       this.webOrderRepository.createQueryBuilder('ORDER');
@@ -118,6 +128,12 @@ export class OrderService {
         `LOWER(ORDER.ORDEN) like LOWER('%${search}%')`,
       );
     }
+
+    // Add the same store filter to count query
+    if (store) {
+      countQueryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+    }
+
     const totalItems = await countQueryBuilder.getCount();
 
     // Add sorting
@@ -140,6 +156,7 @@ export class OrderService {
    */
   private async findRelatedEntitiesForOrders(
     orderKeys: string[],
+    store?: string,
   ): Promise<any[]> {
     if (!orderKeys.length) {
       return [];
@@ -169,6 +186,11 @@ export class OrderService {
       )
       .leftJoin(WebFactures, 'FACTURES', 'FACTURES.ORDEN = ORDER.ORDEN')
       .where(`ORDER.ORDEN IN (${formattedOrderKeys})`);
+
+    // Add store filter if provided
+    if (store) {
+      queryBuilder.andWhere(`ORDER.TIENDA = '${store}'`);
+    }
 
     // Execute query to get all related entities
     return this.webOrderRepository.query(queryBuilder.getSql());
