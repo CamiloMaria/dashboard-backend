@@ -92,18 +92,18 @@ export class OrderMapper {
   constructor(private readonly logger: LoggerService) {}
 
   /**
-   * Maps raw database rows to structured order responses with related entities
+   * Maps basic order data from raw database rows without related entities
    * @param rawRows - Raw database rows from the query
-   * @returns Array of order responses with nested related entities
+   * @returns Array of basic order data
    */
-  public mapRawRowsToOrderResponses(rawRows: any[]): IOrderResponse[] {
+  public mapBasicOrdersFromRows(rawRows: any[]): IOrderResponse[] {
     this.logger.debug(
-      `Mapping ${rawRows.length} raw database rows to order responses`,
+      `Mapping ${rawRows.length} raw database rows to basic order responses`,
       OrderMapper.name,
     );
 
     try {
-      // Process the raw data to group related entities
+      // Create a map to store unique orders by their key
       const ordersMap = new Map();
 
       for (const row of rawRows) {
@@ -119,73 +119,110 @@ export class OrderMapper {
 
           ordersMap.set(orderKey, {
             ...orderData,
-            articles: [],
-            transactions: [],
-            factures: [],
+            ARTICULOS: [],
+            TRANSACCIONES: [],
+            FACTURAS: [],
           });
-        }
-
-        const orderEntry = ordersMap.get(orderKey);
-
-        // Add article if exists
-        if (row.ARTICLE_ID) {
-          const articleExists = orderEntry.articles.some(
-            (a: WebArticles) => a.ID === row.ARTICLE_ID,
-          );
-          if (!articleExists) {
-            const article = {};
-            this.articlesColumns.forEach((column) => {
-              const [, fieldName] = column.split(' as ');
-              const originalName = fieldName.replace('ARTICLE_', '');
-              article[originalName] = row[fieldName];
-            });
-            orderEntry.articles.push(article);
-          }
-        }
-
-        // Add transaction if exists
-        if (row.TRANSACTION_ID) {
-          const transactionExists = orderEntry.transactions.some(
-            (t: WebTransactions) => t.ID === row.TRANSACTION_ID,
-          );
-          if (!transactionExists) {
-            const transaction = {};
-            this.transactionsColumns.forEach((column) => {
-              const [, fieldName] = column.split(' as ');
-              const originalName = fieldName.replace('TRANSACTION_', '');
-              transaction[originalName] = row[fieldName];
-            });
-            orderEntry.transactions.push(transaction);
-          }
-        }
-
-        // Add facture if exists
-        if (row.FACTURE_ID) {
-          const factureExists = orderEntry.factures.some(
-            (f: WebFactures) => f.ID === row.FACTURE_ID,
-          );
-          if (!factureExists) {
-            const facture = {};
-            this.facturesColumns.forEach((column) => {
-              const [, fieldName] = column.split(' as ');
-              const originalName = fieldName.replace('FACTURE_', '');
-              facture[originalName] = row[fieldName];
-            });
-            orderEntry.factures.push(facture);
-          }
         }
       }
 
       const items = Array.from(ordersMap.values()) as IOrderResponse[];
       this.logger.debug(
-        `Successfully mapped data into ${items.length} order responses`,
+        `Successfully mapped data into ${items.length} basic order responses`,
         OrderMapper.name,
       );
 
       return items;
     } catch (error) {
       this.logger.error(
-        `Error mapping raw rows to order responses: ${error.message}`,
+        `Error mapping raw rows to basic order responses: ${error.message}`,
+        error.stack,
+        OrderMapper.name,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Associates related entities with their parent orders
+   * @param orders - Array of order responses
+   * @param relatedEntitiesRows - Raw database rows containing related entities
+   * @returns Array of order responses with associated related entities
+   */
+  public associateRelatedEntitiesWithOrders(
+    orders: IOrderResponse[],
+    relatedEntitiesRows: any[],
+  ): IOrderResponse[] {
+    this.logger.debug(
+      `Associating related entities from ${relatedEntitiesRows.length} rows with ${orders.length} orders`,
+      OrderMapper.name,
+    );
+
+    try {
+      // Create a map for quick access to orders by key
+      const ordersMap = new Map(orders.map((order) => [order.ORDEN, order]));
+
+      for (const row of relatedEntitiesRows) {
+        const orderKey = row.ORDEN;
+        const orderEntry = ordersMap.get(orderKey);
+
+        if (!orderEntry) {
+          continue; // Skip if order not found in our set
+        }
+
+        // Add article if exists
+        if (row.ARTICLE_EAN) {
+          const articleExists = orderEntry.ARTICULOS.some(
+            (a) => a.EAN === row.ARTICLE_EAN,
+          );
+          if (!articleExists) {
+            const article: Partial<WebArticles> = {};
+            this.articlesColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('ARTICLE_', '');
+              article[originalName] = row[fieldName];
+            });
+            orderEntry.ARTICULOS.push(article);
+          }
+        }
+
+        // Add transaction if exists
+        if (row.TRANSACTION_APROBACION) {
+          const transactionExists = orderEntry.TRANSACCIONES.some(
+            (t) => t.APROBACION === row.TRANSACTION_APROBACION,
+          );
+          if (!transactionExists) {
+            const transaction: Partial<WebTransactions> = {};
+            this.transactionsColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('TRANSACTION_', '');
+              transaction[originalName] = row[fieldName];
+            });
+            orderEntry.TRANSACCIONES.push(transaction);
+          }
+        }
+
+        // Add facture if exists
+        if (row.FACTURE_FACTURAS) {
+          const factureExists = orderEntry.FACTURAS.some(
+            (f) => f.FACTURAS === row.FACTURE_FACTURAS,
+          );
+          if (!factureExists) {
+            const facture: Partial<WebFactures> = {};
+            this.facturesColumns.forEach((column) => {
+              const [, fieldName] = column.split(' as ');
+              const originalName = fieldName.replace('FACTURE_', '');
+              facture[originalName] = row[fieldName];
+            });
+            orderEntry.FACTURAS.push(facture);
+          }
+        }
+      }
+
+      return Array.from(ordersMap.values());
+    } catch (error) {
+      this.logger.error(
+        `Error associating related entities with orders: ${error.message}`,
         error.stack,
         OrderMapper.name,
       );
