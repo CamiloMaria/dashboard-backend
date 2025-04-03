@@ -238,9 +238,11 @@ export class OrderService {
   async changeOrderStatusToPrint(orderNumber: string, forcePrint: boolean) {
     if (!forcePrint) return;
 
-    const order = await this.webOrderRepository.findOne({
-      where: { ORDEN: orderNumber },
-    });
+    const order = await this.webOrderRepository
+      .createQueryBuilder('ORDER')
+      .select('ORDER.ORDEN', 'ORDEN')
+      .where('ORDER.ORDEN = :orderNumber', { orderNumber })
+      .getRawOne();
 
     if (order) {
       await this.webOrderRepository.update(order.ORDEN, {

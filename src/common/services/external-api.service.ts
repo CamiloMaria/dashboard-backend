@@ -29,6 +29,7 @@ import {
 } from '../interfaces';
 import { CloudflareResponse } from '../interfaces/cloudflare-api.interface';
 import { getQueryStringParameters } from '../utils/string.utils';
+import { AxiosError } from 'axios';
 
 @Injectable()
 export class ExternalApiService {
@@ -807,6 +808,24 @@ export class ExternalApiService {
 
       return response.data;
     } catch (error) {
+      if (
+        error instanceof AxiosError &&
+        error.response?.data?.message &&
+        error.response.data.message.startsWith(
+          'Este picker no tiene una cola asignada',
+        )
+      ) {
+        return null;
+      }
+
+      if (error instanceof AxiosError && error.code === 'ECONNREFUSED') {
+        this.logger.error(
+          `Connection refused when getting spooler: ${error.message}`,
+          error.stack,
+        );
+        return null;
+      }
+
       this.logger.error(`Error getting spooler: ${error.message}`, error.stack);
 
       throw new HttpException(

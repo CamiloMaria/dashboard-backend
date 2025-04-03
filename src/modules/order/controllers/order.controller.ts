@@ -138,6 +138,17 @@ export class OrderController {
       const spoolerData: SpoolerResponse =
         await this.externalApiService.getSpooler(email);
 
+      if (!spoolerData) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'No spooler found',
+            error: 'No spooler found',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
       // Return formatted response
       return this.responseService.success(
         spoolerData,
@@ -207,7 +218,7 @@ export class OrderController {
     try {
       // Check if user has permission to print orders
       const hasPrintPermission =
-        request.user.allowedPages.includes('orders:print');
+        request.user.allowedPages.includes('/orders:print');
 
       if (!hasPrintPermission) {
         throw new ForbiddenException(
