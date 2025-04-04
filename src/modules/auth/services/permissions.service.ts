@@ -17,7 +17,7 @@ export class PermissionsService {
     string,
     { permissions: WebUsersPermissions; timestamp: number }
   >();
-  private readonly CACHE_TTL = 2 * 60 * 1000; // 2 minutes in milliseconds
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   constructor(
     @InjectRepository(WebUsersPermissions, DatabaseConnection.SHOP)
@@ -129,7 +129,6 @@ export class PermissionsService {
    */
   invalidatePermissionsCache(username: string): void {
     this.permissionsCache.delete(username);
-    this.logger.debug(`Permissions cache invalidated for user: ${username}`);
   }
 
   /**
@@ -137,6 +136,5 @@ export class PermissionsService {
    */
   clearPermissionsCache(): void {
     this.permissionsCache.clear();
-    this.logger.debug('Permissions cache cleared');
   }
 }
