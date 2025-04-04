@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ImagePositionChangeDto } from './image-position-change.dto';
 import { ProductUpdateDto } from './product-update.dto';
+import { CatalogUpdateDto } from './product-update.dto';
 
 /**
  * DTO for atomic product update
@@ -55,6 +56,16 @@ export class AtomicProductUpdateDto {
   @ValidateNested()
   @Type(() => ProductUpdateDto)
   metadata?: ProductUpdateDto;
+
+  @ApiPropertyOptional({
+    description: 'Array of catalog updates',
+    type: [CatalogUpdateDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CatalogUpdateDto)
+  catalogs?: CatalogUpdateDto[];
 }
 
 /**

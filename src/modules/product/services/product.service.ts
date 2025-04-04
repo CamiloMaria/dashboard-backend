@@ -23,7 +23,11 @@ import {
 } from '../dto/create-product.dto';
 import { LoggerService } from 'src/config';
 import { GenerateKeywordsDto } from '../dto/generate-keywords.dto';
-import { ProductPatchDto, ProductUpdateDto } from '../dto/product-update.dto';
+import {
+  CatalogUpdateDto,
+  ProductPatchDto,
+  ProductUpdateDto,
+} from '../dto/product-update.dto';
 import { WebCatalog } from '../entities/shop/web-catalog.entity';
 import { WebProductRemoved } from '../entities/shop/web-product-removed.entity';
 import { WebProductImage } from '../entities/shop/web-product-image.entity';
@@ -1045,6 +1049,7 @@ export class ProductService {
     sku: string,
     updateData: {
       product?: ProductUpdateDto;
+      catalogs?: CatalogUpdateDto[];
       images?: {
         delete?: number[];
         add?: { position: number; file: Express.Multer.File }[];
@@ -1337,6 +1342,7 @@ export class ProductService {
             product.num,
             {
               product: updateData.product,
+              catalogs: updateData.catalogs,
             },
             username,
           );

@@ -1130,6 +1130,7 @@ export class ProductController {
         data.sku,
         {
           product: data.metadata,
+          catalogs: data.catalogs,
           images: {
             delete: data.imagesToDelete,
             reorder: data.imagesToReorder,
