@@ -434,7 +434,6 @@ export class AuthController {
     }
   }
 
-  // user/logs
   @Get('user/logs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePages('/logs')
