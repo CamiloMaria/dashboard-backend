@@ -16,7 +16,7 @@ export class PermissionsService {
     string,
     { permissions: WebUsersPermissions; timestamp: number }
   >();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+  private readonly CACHE_TTL = 2 * 60 * 1000; // 2 minutes in milliseconds
 
   constructor(
     @InjectRepository(WebUsersPermissions, DatabaseConnection.SHOP)

@@ -24,6 +24,7 @@ import {
 } from '../../../common/schemas/response.schema';
 import { ResponseService } from '../../../common/services/response.service';
 import { Public } from 'src/common/decorators';
+import { RequirePages } from 'src/common';
 
 @ApiTags('Products Promotions')
 @ApiCookieAuth()
@@ -42,6 +43,7 @@ export class ProductPromotionController {
   }
 
   @Get()
+  @RequirePages('/product-promotions')
   @ApiOperation({
     summary: 'Get all product promotions with pagination, search, and sorting',
   })
@@ -91,6 +93,7 @@ export class ProductPromotionController {
   }
 
   @Get(':id')
+  @RequirePages('/product-promotions')
   @ApiOperation({ summary: 'Get a promotion by ID' })
   @ApiParam({ name: 'id', description: 'Promotion ID', type: 'number' })
   @ApiResponse({

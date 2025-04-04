@@ -28,6 +28,7 @@ import { IOrderResponse } from '../interfaces/order-response.interface';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { ExternalApiService } from 'src/common/services/external-api.service';
 import { SpoolerResponse } from 'src/common/interfaces/ptlog-api.interface';
+import { RequirePages } from 'src/common';
 
 @ApiTags('Orders')
 @ApiCookieAuth()
@@ -40,6 +41,7 @@ export class OrderController {
   ) {}
 
   @Get()
+  @RequirePages('/orders')
   @ApiOperation({ summary: 'Get all orders with pagination' })
   @ApiQuery({ type: OrderFilterDto })
   @ApiResponse({
@@ -93,6 +95,7 @@ export class OrderController {
   }
 
   @Get('spooler')
+  @RequirePages('/orders:print')
   @ApiOperation({ summary: 'Get spooler information for order printing' })
   @ApiResponse({
     status: 200,
@@ -121,16 +124,6 @@ export class OrderController {
   })
   async getSpooler(@Req() request: RequestWithUser) {
     try {
-      // Check if user has permission to access spooler
-      const hasSpoolerPermission =
-        request.user.allowedPages.includes('/orders:print');
-
-      if (!hasSpoolerPermission) {
-        throw new ForbiddenException(
-          'You do not have permission to access the spooler',
-        );
-      }
-
       // Extract user email from authenticated request
       const { email } = request.user;
 
@@ -179,6 +172,7 @@ export class OrderController {
   }
 
   @Post('print')
+  @RequirePages('/orders:print')
   @ApiOperation({ summary: 'Send an order to print' })
   @ApiBody({ type: PrintOrderDto })
   @ApiResponse({
@@ -216,16 +210,6 @@ export class OrderController {
     @Req() request: RequestWithUser,
   ) {
     try {
-      // Check if user has permission to print orders
-      const hasPrintPermission =
-        request.user.allowedPages.includes('/orders:print');
-
-      if (!hasPrintPermission) {
-        throw new ForbiddenException(
-          'You do not have permission to print orders',
-        );
-      }
-
       // Extract user email from authenticated request
       const { email } = request.user;
       const { orderNumber, spooler, forcePrint } = printOrderDto;

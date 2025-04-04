@@ -55,6 +55,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
 import { DatabaseConnection } from 'src/config/database/constants';
+import { RequirePages } from 'src/common';
 
 @ApiTags('Products')
 @ApiCookieAuth()
@@ -76,6 +77,7 @@ export class ProductController {
   }
 
   @Get()
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Get all products with pagination, search, and sorting',
   })
@@ -130,6 +132,7 @@ export class ProductController {
   }
 
   @Get(':id')
+  @RequirePages('/products')
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
   @ApiResponse({
@@ -179,6 +182,7 @@ export class ProductController {
   }
 
   @Post('generate-description')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Generate a product description using ChatGPT',
   })
@@ -233,6 +237,7 @@ export class ProductController {
   }
 
   @Post('generate-keywords')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Generate SEO keywords for a product using ChatGPT',
   })
@@ -285,6 +290,7 @@ export class ProductController {
   }
 
   @Post('generate-keywords-all')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Generate keywords for all products without existing keywords',
     description:
@@ -479,6 +485,7 @@ export class ProductController {
   }
 
   @Post('generate-keywords-pause')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Pause a running keyword generation task',
     description:
@@ -546,6 +553,7 @@ export class ProductController {
   }
 
   @Post('generate-keywords-resume')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Resume a paused keyword generation task',
     description: 'Resumes a previously paused keyword generation task',
@@ -612,6 +620,7 @@ export class ProductController {
   }
 
   @Get('generate-keywords-status')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Get the current status of the keyword generation task',
     description:
@@ -725,6 +734,7 @@ export class ProductController {
   }
 
   @Get('generate-keywords-stats')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Get detailed statistics about the keyword generation process',
     description: 'Returns information about the keyword generation performance',
@@ -807,6 +817,7 @@ export class ProductController {
   }
 
   @Post()
+  @RequirePages('/products/new')
   @ApiOperation({
     summary: 'Create products from a list of SKUs',
     description:
@@ -891,6 +902,7 @@ export class ProductController {
   }
 
   @Patch(':id')
+  @RequirePages('/product/$productId')
   @ApiOperation({ summary: 'Update a product and/or its catalogs' })
   @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
   @ApiBody({ type: ProductPatchDto })
@@ -959,6 +971,7 @@ export class ProductController {
   }
 
   @Delete(':id')
+  @RequirePages('/product/$productId')
   @ApiOperation({ summary: 'Delete a product and its related data' })
   @ApiParam({ name: 'id', description: 'Product ID', type: 'number' })
   @ApiBody({ type: ProductDeleteDto })
@@ -1036,6 +1049,7 @@ export class ProductController {
   }
 
   @Post('atomic-update')
+  @RequirePages('/product/$productId')
   @ApiOperation({
     summary: 'Update a product and its images in a single transaction',
     description:

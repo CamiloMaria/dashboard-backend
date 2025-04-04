@@ -34,6 +34,7 @@ import {
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
 import { ProductSetDeleteDto } from '../dto/product-set-delete.dto';
+import { RequirePages } from 'src/common';
 
 @ApiTags('Products Sets')
 @Controller('product-sets')
@@ -51,6 +52,7 @@ export class ProductSetController {
   }
 
   @Get()
+  @RequirePages('/product-sets')
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get all product sets with pagination, search, and sorting',
@@ -101,6 +103,7 @@ export class ProductSetController {
   }
 
   @Post()
+  @RequirePages('/product-sets')
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Create a product set (bundle)',
@@ -187,6 +190,7 @@ export class ProductSetController {
   }
 
   @Delete(':setSku')
+  @RequirePages('/product-sets')
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Delete a product set',

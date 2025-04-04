@@ -31,6 +31,7 @@ import { ResponseService } from 'src/common/services/response.service';
 import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
 import { ImageDeleteBatchDto, ImageReorderDto, ImageUpdateDto } from '../dto';
+import { RequirePages } from 'src/common';
 
 @ApiTags('Products Images')
 @ApiCookieAuth()
@@ -49,6 +50,7 @@ export class ProductImageController {
   }
 
   @Post()
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Upload product images',
     description:
@@ -140,6 +142,7 @@ export class ProductImageController {
   }
 
   @Put()
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Update a product image at a specific position',
     description:
@@ -269,6 +272,7 @@ export class ProductImageController {
   }
 
   @Delete(':sku/:position')
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Delete a product image at a specific position',
     description:
@@ -366,6 +370,7 @@ export class ProductImageController {
   }
 
   @Delete()
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Delete multiple product images',
     description:
@@ -465,6 +470,7 @@ export class ProductImageController {
   }
 
   @Post('reorder')
+  @RequirePages('/products')
   @ApiOperation({
     summary: 'Reorder product images',
     description:
