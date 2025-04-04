@@ -14,6 +14,7 @@ import { EnvService } from '../../config/env/env.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { UserEntity } from './entities/intranet';
+import { UserService } from './services/user.service';
 
 @Module({
   imports: [
@@ -44,10 +45,17 @@ import { UserEntity } from './entities/intranet';
   providers: [
     AuthService,
     PermissionsService,
+    UserService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
   ],
-  exports: [AuthService, PermissionsService, JwtAuthGuard, RolesGuard],
+  exports: [
+    AuthService,
+    PermissionsService,
+    UserService,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}

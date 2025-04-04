@@ -10,6 +10,7 @@ import {
   Request,
   InternalServerErrorException,
   Res,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,17 +18,22 @@ import {
   ApiResponse,
   ApiBody,
   ApiCookieAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Response } from 'express';
 
 import { AuthService } from '../services/auth.service';
-import { LoginDto } from '../dto/login.dto';
-import { UserLoginResponseDto } from '../dto/auth-response.dto';
-import { BaseResponse } from '../../../common/schemas/response.schema';
+import { LoginDto, UserPaginationDto } from '../dto';
+import { UserLoginResponseDto } from '../dto';
+import {
+  BaseResponse,
+  PaginatedResponse,
+} from '../../../common/schemas/response.schema';
 import { JwtAuthGuard, RolesGuard, RequirePages } from '../../../common/guards';
 import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
+import { UserService } from '../services/user.service';
 
 /**
  * Controller for authentication-related endpoints
@@ -38,6 +44,7 @@ import { RequestWithUser } from '../../../common/interfaces/request.interface';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly userService: UserService,
     private readonly responseService: ResponseService,
   ) {}
 
@@ -334,5 +341,57 @@ export class AuthController {
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @RequirePages('/permissions')
+  @ApiOperation({
+    summary: 'Get all users with pagination',
+    description: 'Returns a paginated list of all users with their permissions',
+  })
+  @ApiQuery({ type: UserPaginationDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Users retrieved successfully',
+    type: PaginatedResponse,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Forbidden - User does not have required permissions',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async getUsersWithPagination(@Query() paginationDto: UserPaginationDto) {
+    try {
+      const { items, meta } = await this.userService.getAllUsers(paginationDto);
+
+      return this.responseService.paginate(
+        items,
+        meta.totalItems,
+        meta.currentPage,
+        meta.itemsPerPage,
+        'Users retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Failed to retrieve users',
+        error: error.message,
+      });
+    }
   }
 }
