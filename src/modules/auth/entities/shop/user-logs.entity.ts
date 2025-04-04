@@ -17,6 +17,9 @@ export class UsersLogsEntity {
   @Column({ type: 'text', nullable: true })
   log: string;
 
+  @Column({ type: 'longtext', nullable: true })
+  details: string;
+
   @Column({
     type: 'datetime',
     nullable: false,

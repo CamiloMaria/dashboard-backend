@@ -29,6 +29,8 @@ import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { ExternalApiService } from 'src/common/services/external-api.service';
 import { SpoolerResponse } from 'src/common/interfaces/ptlog-api.interface';
 import { RequirePages } from 'src/common';
+import { UserLogsService } from 'src/common/services/user-logs.service';
+import { LogType } from 'src/common/constants/log-types.enum';
 
 @ApiTags('Orders')
 @ApiCookieAuth()
@@ -38,6 +40,7 @@ export class OrderController {
     private readonly orderService: OrderService,
     private readonly responseService: ResponseService,
     private readonly externalApiService: ExternalApiService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   @Get()
@@ -211,7 +214,7 @@ export class OrderController {
   ) {
     try {
       // Extract user email from authenticated request
-      const { email } = request.user;
+      const { email, username } = request.user;
       const { orderNumber, spooler, forcePrint } = printOrderDto;
 
       // change order status to print from PRINT 1 to PRINT 0 if forcePrint is true
@@ -224,6 +227,13 @@ export class OrderController {
         spooler,
       );
 
+      // Log the print order request
+      await this.userLogsService.logCreate(
+        username,
+        'print-order',
+        `Order ${orderNumber} sent to print on spooler ${spooler}${forcePrint ? ' (forced)' : ''}`,
+      );
+
       // Return formatted response
       return this.responseService.success(
         printResponse,
@@ -234,6 +244,20 @@ export class OrderController {
         },
       );
     } catch (error) {
+      // Log the error
+      if (request.user?.username) {
+        await this.userLogsService
+          .logGeneric(
+            request.user.username,
+            LogType.CREATE,
+            'print-order',
+            `Failed to print order: ${error.message}`,
+          )
+          .catch(() => {
+            // Silently catch any logging errors to prevent cascading failures
+          });
+      }
+
       if (error instanceof ForbiddenException) {
         throw error;
       }

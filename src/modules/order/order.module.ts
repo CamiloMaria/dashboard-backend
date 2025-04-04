@@ -20,6 +20,5 @@ import { OrderMapper } from './mappers/order.mapper';
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderMapper],
-  exports: [TypeOrmModule],
 })
 export class OrderModule {}

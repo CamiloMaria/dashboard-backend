@@ -56,6 +56,7 @@ import { Repository } from 'typeorm';
 import { WebProduct } from '../entities/shop/web-product.entity';
 import { DatabaseConnection } from 'src/config/database/constants';
 import { RequirePages } from 'src/common';
+import { UserLogsService } from 'src/common/services/user-logs.service';
 
 @ApiTags('Products')
 @ApiCookieAuth()
@@ -65,6 +66,7 @@ export class ProductController {
     private readonly productService: ProductService,
     private readonly responseService: ResponseService,
     private readonly logger: LoggerService,
+    private readonly userLogsService: UserLogsService,
     @InjectRepository(WebProduct, DatabaseConnection.SHOP)
     private readonly webProductRepository: Repository<WebProduct>,
   ) {}
@@ -207,10 +209,23 @@ export class ProductController {
     description: 'Internal server error',
     type: BaseResponse<null>,
   })
-  async generateDescription(@Body() generateDto: GenerateDescriptionDto) {
+  async generateDescription(
+    @Body() generateDto: GenerateDescriptionDto,
+    @Request() req: RequestWithUser,
+  ) {
     try {
       const description = await this.productService.generateDescription(
         generateDto.productTitle,
+      );
+
+      // Log the generate description request
+      await this.userLogsService.logCreate(
+        req.user?.username || 'system',
+        'generate-description',
+        `Product description generated for ${generateDto.productTitle}`,
+        {
+          description,
+        },
       );
 
       return this.responseService.success(
@@ -262,9 +277,22 @@ export class ProductController {
     description: 'Internal server error',
     type: BaseResponse<null>,
   })
-  async generateKeywords(@Body() generateDto: GenerateKeywordsDto) {
+  async generateKeywords(
+    @Body() generateDto: GenerateKeywordsDto,
+    @Request() req: RequestWithUser,
+  ) {
     try {
       const keywords = await this.productService.generateKeywords(generateDto);
+
+      // Log the generate keywords request
+      await this.userLogsService.logCreate(
+        req.user?.username || 'system',
+        'generate-keywords',
+        `Product keywords generated for SKU ${generateDto.sku}`,
+        {
+          keywords,
+        },
+      );
 
       return this.responseService.success(
         { keywords },
@@ -940,7 +968,6 @@ export class ProductController {
       // Get the authenticated user from the request
       const username = req.user?.username || 'system';
 
-      return;
       const updatedProduct = await this.productService.updateProduct(
         id,
         updateDto,

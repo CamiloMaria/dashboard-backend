@@ -6,6 +6,7 @@ import { WebProductImage } from '../entities/shop/web-product-image.entity';
 import { DatabaseConnection } from '../../../config/database/constants';
 import { EnvService } from '../../../config/env/env.service';
 import { ExternalApiService } from '../../../common/services/external-api.service';
+import { UserLogsService } from '../../../common/services/user-logs.service';
 
 @Injectable()
 export class ProductImageService {
@@ -18,6 +19,7 @@ export class ProductImageService {
     private readonly webProductImageRepository: Repository<WebProductImage>,
     private readonly externalApiService: ExternalApiService,
     private readonly envService: EnvService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   /**
@@ -156,6 +158,16 @@ export class ProductImageService {
       // Log batch processing completion
       this.logger.log(
         `Batch upload completed: ${batchStats.successful} successful, ${batchStats.failed} failed out of ${batchStats.total} total files`,
+      );
+
+      // Log the upload images request
+      await this.userLogsService.logCreate(
+        username,
+        'upload-product-images',
+        `Batch upload completed: ${batchStats.successful} successful, ${batchStats.failed} failed out of ${batchStats.total} total files`,
+        {
+          results,
+        },
       );
 
       return results;
@@ -503,6 +515,18 @@ export class ProductImageService {
       // Commit the transaction
       await queryRunner.commitTransaction();
 
+      // Log the update image request
+      await this.userLogsService.logUpdate(
+        username,
+        'update-product-image',
+        `Image at position ${position} updated successfully`,
+        {
+          imageId: savedImage.id,
+          position,
+          url: `${newImage.src_cloudflare}/base`,
+        },
+      );
+
       return {
         success: true,
         message: `Image at position ${position} updated successfully`,
@@ -694,6 +718,18 @@ export class ProductImageService {
 
       // Commit the transaction
       await queryRunner.commitTransaction();
+
+      // Log the delete image request
+      await this.userLogsService.logDelete(
+        username,
+        'delete-product-image',
+        `Image at position ${position} deleted successfully`,
+        {
+          imageId: imageToDelete.id,
+          position,
+          url: `${imageToDelete.src_cloudflare}/base`,
+        },
+      );
 
       return {
         success: true,
@@ -902,6 +938,18 @@ export class ProductImageService {
 
       // Commit the transaction
       await queryRunner.commitTransaction();
+
+      // Log the delete images request
+      await this.userLogsService.logDelete(
+        username,
+        'delete-product-images',
+        `Batch deletion completed: ${successCount} successful, ${failedPositions.length} failed out of ${positions.length} total images`,
+        {
+          sku,
+          positions,
+          failedPositions,
+        },
+      );
 
       return {
         success: true,
@@ -1151,6 +1199,17 @@ export class ProductImageService {
       // Commit the transaction
       await queryRunner.commitTransaction();
 
+      // Log the reorder images request
+      await this.userLogsService.logUpdate(
+        username,
+        'reorder-product-images',
+        `Successfully reordered ${reorderedPositions.length} image positions`,
+        {
+          sku,
+          reorderedPositions,
+        },
+      );
+
       return {
         success: true,
         message: `Successfully reordered ${reorderedPositions.length} image positions`,
@@ -1322,6 +1381,17 @@ export class ProductImageService {
         );
         // Continue with the process even if Instaleap update fails
       }
+
+      // Log the process and upload image request
+      await this.userLogsService.logCreate(
+        username,
+        'process-and-upload-image',
+        `Image processed and uploaded successfully for product ${sku} at position ${position}`,
+        {
+          imageId: savedImage.id,
+          url: imageUrl,
+        },
+      );
 
       return {
         success: true,

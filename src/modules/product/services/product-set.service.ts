@@ -7,7 +7,6 @@ import {
   WebCatalog,
   WebProductImage,
   WebProductGroup,
-  WebProductSetRelation,
 } from '../entities/shop';
 import { ProductSetResponseDto } from '../dto/product-set-response.dto';
 import { DatabaseConnection } from '../../../config/database/constants';
@@ -25,6 +24,7 @@ import {
 } from '../dto/create-product-set.dto';
 import { LoggerService } from 'src/config';
 import { ExternalApiService } from 'src/common';
+import { UserLogsService } from 'src/common/services/user-logs.service';
 
 @Injectable()
 export class ProductSetService {
@@ -39,13 +39,12 @@ export class ProductSetService {
     private readonly webProductImageRepository: Repository<WebProductImage>,
     @InjectRepository(WebProductGroup, DatabaseConnection.SHOP)
     private readonly webProductGroupRepository: Repository<WebProductGroup>,
-    @InjectRepository(WebProductSetRelation, DatabaseConnection.SHOP)
-    private readonly productSetRelationRepository: Repository<WebProductSetRelation>,
     @InjectDataSource(DatabaseConnection.SHOP)
     private readonly shopDataSource: DataSource,
     private readonly productSetMapper: ProductSetMapper,
     private readonly externalApiService: ExternalApiService,
     private readonly logger: LoggerService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   /**
@@ -475,6 +474,18 @@ export class ProductSetService {
         productSet.set_sku,
       );
 
+      // Log the create product set request
+      await this.userLogsService.logCreate(
+        username,
+        'create-product-set',
+        `Product set created: ${productSet.set_sku}`,
+        {
+          setSku: productSet.set_sku,
+          title: productSet.title,
+          products: products,
+        },
+      );
+
       return {
         success: true,
         message: 'Product set created successfully',
@@ -609,6 +620,18 @@ export class ProductSetService {
 
         // Commit the transaction
         await queryRunner.commitTransaction();
+
+        // Log the delete product set request
+        await this.userLogsService.logDelete(
+          username,
+          'delete-product-set',
+          `Product set deleted: ${setSku}`,
+          {
+            setSku: setSku,
+            title: productSet.title,
+            products: productSkus,
+          },
+        );
 
         // Return success
         return {

@@ -36,6 +36,7 @@ import { ModuleRef } from '@nestjs/core';
 import { ProductImageService } from './product-image.service';
 import { EnvService } from 'src/config/env/env.service';
 import { InstaleapMapper, tryParseJson } from 'src/common';
+import { UserLogsService } from 'src/common/services/user-logs.service';
 
 @Injectable()
 export class ProductService {
@@ -86,6 +87,7 @@ export class ProductService {
     private readonly externalApiService: ExternalApiService,
     private readonly moduleRef: ModuleRef,
     private readonly envService: EnvService,
+    private readonly userLogsService: UserLogsService,
   ) {
     this.imageDefaultUrl = this.envService.cloudflareDefaultImageUrl;
     this.imageDNS = this.envService.cloudflareImageDns;
@@ -657,6 +659,14 @@ export class ProductService {
       }
     }
 
+    // Log the create products request
+    await this.userLogsService.logCreate(
+      username,
+      'create-products',
+      `Products created from SKUs: ${skus.join(', ')}`,
+      { results },
+    );
+
     return results;
   }
 
@@ -879,6 +889,17 @@ export class ProductService {
         relations: ['images', 'catalogs', 'group'],
       });
 
+      // Log the update product request
+      await this.userLogsService.logUpdate(
+        username,
+        'update-product',
+        `Product updated: ${productId}`,
+        {
+          before: product,
+          after: updatedProduct,
+        },
+      );
+
       return this.productMapper.mapToDto(updatedProduct);
     } catch (error) {
       if (error instanceof HttpException) {
@@ -1004,6 +1025,17 @@ export class ProductService {
 
         // Commit the transaction
         await queryRunner.commitTransaction();
+
+        // Log the delete product request
+        await this.userLogsService.logDelete(
+          username,
+          'delete-product',
+          `Product deleted: ${productId}`,
+          {
+            sku: product.sku,
+            comment,
+          },
+        );
 
         return {
           success: true,

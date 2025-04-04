@@ -60,6 +60,5 @@ import { ProductImageController } from './controllers/product-image.controller';
     ProductSetMapper,
     ProductImageService,
   ],
-  exports: [TypeOrmModule],
 })
 export class ProductModule {}
