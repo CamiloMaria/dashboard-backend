@@ -23,7 +23,7 @@ import {
 import { Response } from 'express';
 
 import { AuthService } from '../services/auth.service';
-import { LoginDto, UserPaginationDto } from '../dto';
+import { LoginDto, UpdateUserPermissionsDto, UserPaginationDto } from '../dto';
 import { UserLoginResponseDto } from '../dto';
 import {
   BaseResponse,
@@ -34,6 +34,7 @@ import { Public } from '../../../common/decorators';
 import { ResponseService } from '../../../common/services/response.service';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { UserService } from '../services/user.service';
+import { PermissionsService } from '../services/permissions.service';
 
 /**
  * Controller for authentication-related endpoints
@@ -45,6 +46,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
+    private readonly permissionsService: PermissionsService,
     private readonly responseService: ResponseService,
   ) {}
 
@@ -390,6 +392,42 @@ export class AuthController {
       throw new InternalServerErrorException({
         success: false,
         message: 'Failed to retrieve users',
+        error: error.message,
+      });
+    }
+  }
+
+  @Post('user/permissions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @RequirePages('/permissions')
+  @ApiOperation({
+    summary: 'Update user permissions',
+    description: 'Updates the permissions for a user',
+  })
+  @ApiBody({ type: UpdateUserPermissionsDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Permissions updated successfully',
+  })
+  async updateUserPermissions(
+    @Body() updateUserPermissionsDto: UpdateUserPermissionsDto,
+  ) {
+    try {
+      const updatedUser = await this.permissionsService.updateUserAllowedPages(
+        updateUserPermissionsDto,
+      );
+      return this.responseService.success(
+        updatedUser,
+        'Permissions updated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Failed to update user permissions',
         error: error.message,
       });
     }

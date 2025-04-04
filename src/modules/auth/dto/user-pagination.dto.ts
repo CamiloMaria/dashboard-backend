@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsInt, Min, IsString, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export enum SortOrder {
   ASC = 'ASC',
@@ -72,6 +72,12 @@ export class UserPaginationDto {
   @IsOptional()
   @IsEnum(SortOrder, {
     message: `Sort order must be one of: ${Object.values(SortOrder).join(', ')}`,
+  })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toUpperCase();
+    }
+    return value;
   })
   sortOrder?: SortOrder = SortOrder.ASC;
 }

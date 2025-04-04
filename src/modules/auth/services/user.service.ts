@@ -80,13 +80,7 @@ export class UserService {
               user.usuario,
             );
           }
-        } catch {
-          // If permissions aren't found, use empty array
-          this.logger.warn(
-            `No permissions found for user ${user.usuario}`,
-            'AuthService',
-          );
-        }
+        } catch {}
 
         return {
           userId: user.id?.toString(),

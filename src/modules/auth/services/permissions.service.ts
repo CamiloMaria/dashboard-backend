@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WebUsersPermissions } from '../entities/shop/web-user-permissions.entity';
 import { DatabaseConnection } from '../../../config/database/constants';
+import { UpdateUserPermissionsDto } from '../dto';
 
 @Injectable()
 export class PermissionsService {
@@ -69,6 +70,54 @@ export class PermissionsService {
 
       throw new InternalServerErrorException(
         'Failed to retrieve user permissions',
+        { cause: error },
+      );
+    }
+  }
+
+  /**
+   * Updates a user's allowed pages by user ID
+   * @param username The username of the user to update
+   * @param allowedPages Array of page identifiers to set as allowed pages
+   * @returns Updated user permissions entity
+   * @throws NotFoundException if no permissions are found
+   * @throws InternalServerErrorException if database access fails
+   */
+  async updateUserAllowedPages(
+    updateUserPermissionsDto: UpdateUserPermissionsDto,
+  ): Promise<WebUsersPermissions> {
+    try {
+      const userPermissions = await this.userPermissionsRepository.findOne({
+        where: { username: updateUserPermissionsDto.username },
+      });
+
+      if (!userPermissions) {
+        throw new NotFoundException(
+          `No permissions found for user: ${updateUserPermissionsDto.username}`,
+        );
+      }
+
+      userPermissions.allowedPages = updateUserPermissionsDto.allowedPages;
+
+      const updatedPermissions =
+        await this.userPermissionsRepository.save(userPermissions);
+
+      // Invalidate cache for this user
+      this.invalidatePermissionsCache(updateUserPermissionsDto.username);
+
+      return updatedPermissions;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Error updating allowed pages for user: ${updateUserPermissionsDto.username}: ${error.message}`,
+        error.stack,
+      );
+
+      throw new InternalServerErrorException(
+        'Failed to update user allowed pages',
         { cause: error },
       );
     }
