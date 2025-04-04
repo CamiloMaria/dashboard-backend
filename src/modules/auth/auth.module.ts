@@ -15,6 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { UserEntity } from './entities/intranet';
 import { UserService } from './services/user.service';
+import { UsersLogsEntity } from './entities/shop/user-logs.entity';
 
 @Module({
   imports: [
@@ -38,7 +39,10 @@ import { UserService } from './services/user.service';
         },
       }),
     }),
-    TypeOrmModule.forFeature([WebUsersPermissions], DatabaseConnection.SHOP),
+    TypeOrmModule.forFeature(
+      [WebUsersPermissions, UsersLogsEntity],
+      DatabaseConnection.SHOP,
+    ),
     TypeOrmModule.forFeature([UserEntity], DatabaseConnection.INTRANET),
   ],
   controllers: [AuthController],

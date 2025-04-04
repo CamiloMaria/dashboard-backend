@@ -8,14 +8,18 @@ import { PaginationMeta } from 'src/common/schemas/response.schema';
 import { UserPaginationDto } from '../dto/user-pagination.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { PermissionsService } from './permissions.service';
+import { UsersLogsEntity } from '../entities/shop/user-logs.entity';
+import { UserLogPaginationDto } from '../dto/user-log.dto';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(UserEntity, DatabaseConnection.INTRANET)
     private readonly userRepository: Repository<UserEntity>,
-    private readonly logger: LoggerService,
+    @InjectRepository(UsersLogsEntity, DatabaseConnection.SHOP)
+    private readonly userLogsRepository: Repository<UsersLogsEntity>,
     private readonly permissionsService: PermissionsService,
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -115,6 +119,65 @@ export class UserService {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async getUserLogs(paginationDto: UserLogPaginationDto) {
+    try {
+      const { page = 1, limit = 10, search, sortBy, sortOrder } = paginationDto;
+
+      // Ensure valid pagination parameters
+      const validPage = page > 0 ? page : 1;
+      const validLimit = limit > 0 ? limit : 10;
+
+      // Calculate offset
+      const offset = (validPage - 1) * validLimit;
+
+      // Build where conditions for search
+      let whereConditions:
+        | FindOptionsWhere<UsersLogsEntity>
+        | FindOptionsWhere<UsersLogsEntity>[] = {};
+
+      if (search) {
+        whereConditions = [
+          { user: Like(`%${search}%`) },
+          { type_log: Like(`%${search}%`) },
+          { field: Like(`%${search}%`) },
+        ];
+      }
+
+      // Get total count of logs matching the search criteria
+      const totalItems = await this.userLogsRepository.count({
+        where: whereConditions,
+      });
+
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalItems / validLimit);
+
+      // Prepare the order options for sorting
+      const orderOptions: { [key: string]: 'ASC' | 'DESC' } = {};
+      if (sortBy) {
+        orderOptions[sortBy] = sortOrder;
+      }
+
+      // Find logs matching the search criteria with pagination
+      const logs = await this.userLogsRepository.find({
+        where: whereConditions,
+        skip: offset,
+        take: validLimit,
+        order: Object.keys(orderOptions).length > 0 ? orderOptions : undefined,
+      });
+
+      const meta: PaginationMeta = {
+        totalItems,
+        currentPage: validPage,
+        itemsPerPage: validLimit,
+        totalPages,
+      };
+
+      return { items: logs, meta };
+    } catch (error) {
+      throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

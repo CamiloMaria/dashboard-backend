@@ -35,6 +35,7 @@ import { ResponseService } from '../../../common/services/response.service';
 import { RequestWithUser } from '../../../common/interfaces/request.interface';
 import { UserService } from '../services/user.service';
 import { PermissionsService } from '../services/permissions.service';
+import { UserLogPaginationDto } from '../dto/user-log.dto';
 
 /**
  * Controller for authentication-related endpoints
@@ -428,6 +429,38 @@ export class AuthController {
       throw new InternalServerErrorException({
         success: false,
         message: 'Failed to update user permissions',
+        error: error.message,
+      });
+    }
+  }
+
+  // user/logs
+  @Get('user/logs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @RequirePages('/logs')
+  @ApiOperation({
+    summary: 'Get user logs',
+    description: 'Returns a paginated list of user logs',
+  })
+  async getUserLogs(@Query() paginationDto: UserLogPaginationDto) {
+    try {
+      const { items, meta } = await this.userService.getUserLogs(paginationDto);
+
+      return this.responseService.paginate(
+        items,
+        meta.totalItems,
+        meta.currentPage,
+        meta.itemsPerPage,
+        'User logs retrieved successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Failed to retrieve user logs',
         error: error.message,
       });
     }
