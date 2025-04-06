@@ -811,9 +811,12 @@ export class ExternalApiService {
       if (
         error instanceof AxiosError &&
         error.response?.data?.message &&
-        error.response.data.message.startsWith(
+        (error.response.data.message.startsWith(
           'Este picker no tiene una cola asignada',
-        )
+        ) ||
+          error.response.data.message.startsWith(
+            'Este picker no esta registrado en intranet.',
+          ))
       ) {
         return null;
       }
