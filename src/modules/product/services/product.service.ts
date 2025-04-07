@@ -859,10 +859,16 @@ export class ProductService {
 
             // Set manual override if status is being updated
             catalog.manual_override = true;
+
+            // If status is 1, set status_comment to null
+            if (catalogUpdate.status === 1) {
+              catalog.status_comment = null;
+            }
           }
 
-          // Update status comment if provided
+          // Update status comment if provided and status is not 1
           if (
+            catalogUpdate.status !== 1 &&
             catalogUpdate.status_comment !== undefined &&
             catalogUpdate.status_comment !== null &&
             catalogUpdate.status_comment !== ''
