@@ -6,6 +6,7 @@ export * from './product-response.dto';
 export * from './promotion-response.dto';
 export * from './product-set-response.dto';
 export * from './generate-keywords.dto';
+export * from './update-product-set-status.dto';
 
 // Export with namespace to avoid ambiguity
 export * as ProductFilter from './product-filter.dto';

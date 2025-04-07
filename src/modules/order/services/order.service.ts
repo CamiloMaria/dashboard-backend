@@ -125,7 +125,19 @@ export class OrderService {
       queryBuilder.andWhere(
         `(LOWER(NVL(ORDER.ORDEN, '')) like LOWER('%${searchPattern}%') OR 
           LOWER(NVL(ORDER.RNC, '')) like LOWER('%${searchPattern}%') OR 
-          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%'))`,
+          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%') OR
+          LOWER(NVL(ORDER.TELEFONO, '')) like LOWER('%${searchPattern}%') OR
+          CAST(ORDER.TOTAL AS VARCHAR(255)) like '%${searchPattern}%')`,
+      );
+
+      // Join with FACTURES to search by FACTURE_FACTURAS
+      queryBuilder.leftJoin(
+        WebFactures,
+        'SEARCH_FACTURES',
+        'SEARCH_FACTURES.ORDEN = ORDER.ORDEN',
+      );
+      queryBuilder.orWhere(
+        `LOWER(NVL(SEARCH_FACTURES.FACTURAS, '')) like LOWER('%${searchPattern}%')`,
       );
     }
 
@@ -145,10 +157,19 @@ export class OrderService {
       // Escape single quotes in the search pattern to prevent SQL injection
       const escapedSearch = search.replace(/'/g, "''");
       const searchPattern = `%${escapedSearch}%`;
+
+      countQueryBuilder.leftJoin(
+        WebFactures,
+        'SEARCH_FACTURES',
+        'SEARCH_FACTURES.ORDEN = ORDER.ORDEN',
+      );
       countQueryBuilder.andWhere(
         `(LOWER(NVL(ORDER.ORDEN, '')) like LOWER('%${searchPattern}%') OR 
           LOWER(NVL(ORDER.RNC, '')) like LOWER('%${searchPattern}%') OR 
-          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%'))`,
+          LOWER(NVL(ORDER.EMAIL, '')) like LOWER('%${searchPattern}%') OR
+          LOWER(NVL(ORDER.TELEFONO, '')) like LOWER('%${searchPattern}%') OR
+          CAST(ORDER.TOTAL AS VARCHAR(255)) like '%${searchPattern}%' OR
+          LOWER(NVL(SEARCH_FACTURES.FACTURAS, '')) like LOWER('%${searchPattern}%'))`,
       );
     }
 

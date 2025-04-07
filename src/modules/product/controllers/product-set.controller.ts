@@ -10,6 +10,7 @@ import {
   HttpCode,
   Delete,
   Param,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -35,6 +36,7 @@ import { RequestWithUser } from 'src/common/interfaces/request.interface';
 import { Public } from 'src/common/decorators';
 import { ProductSetDeleteDto } from '../dto/product-set-delete.dto';
 import { RequirePages } from 'src/common';
+import { ProductSetStatusDto } from '../dto';
 
 @ApiTags('Products Sets')
 @Controller('product-sets')
@@ -182,6 +184,78 @@ export class ProductSetController {
         {
           success: false,
           message: 'Failed to create product set',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch(':setId/status')
+  @RequirePages('/product-sets')
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Update the status of a product set',
+    description:
+      'Update the status of a product set to either active or inactive',
+  })
+  @ApiParam({
+    name: 'setId',
+    description: 'The ID of the product set to update',
+    type: 'string',
+    example: '123',
+  })
+  @ApiBody({ type: ProductSetStatusDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product set status updated successfully',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Product set not found',
+    type: BaseResponse,
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+    type: BaseResponse,
+  })
+  async updateProductSetStatus(
+    @Param('setId') setId: string,
+    @Body() updateDto: ProductSetStatusDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      const username = req.user?.username || 'system';
+
+      const result = await this.productSetService.updateProductSetStatus(
+        setId,
+        updateDto.status,
+        username,
+      );
+
+      return this.responseService.success(
+        result,
+        'Product set status updated successfully',
+        {
+          statusCode: HttpStatus.OK,
+          timestamp: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update product set status',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

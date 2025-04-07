@@ -139,6 +139,7 @@ export class ProductSetService {
           price: true,
           compare_price: true,
           area: true,
+          status: true,
           create_at: true,
           update_at: true,
         },
@@ -474,6 +475,9 @@ export class ProductSetService {
         productSet.set_sku,
       );
 
+      // Update catalogs in Instaleap
+      this.externalApiService.updateCatalogsBySkus(skus);
+
       // Log the create product set request
       await this.userLogsService.logCreate(
         username,
@@ -503,6 +507,75 @@ export class ProductSetService {
         status: ProductSetCreationStatus.ERROR,
         error: error.message,
       };
+    }
+  }
+
+  /**
+   * Update the status of a product set
+   * @param setSku The SKU of the product set to update
+   * @param status The new status of the product set
+   * @param username The username of the user performing the update
+   * @returns Object with success status and message
+   */
+  async updateProductSetStatus(
+    setSku: string,
+    status: boolean,
+    username: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const productSet = await this.productSetRepository.findOne({
+        where: { set_sku: setSku },
+        relations: ['relations'],
+      });
+
+      if (!productSet) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product set with SKU ${setSku} not found`,
+            error: 'NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      productSet.status = status ? 1 : 0;
+      await this.productSetRepository.save(productSet);
+
+      // Log the update product set status request
+      await this.userLogsService.logUpdate(
+        username,
+        'update-product-set-status',
+        `Product set status updated: ${setSku}`,
+        {
+          setSku: productSet.set_sku,
+          title: productSet.title,
+          status: status,
+        },
+      );
+
+      // Update catalogs in Instaleap
+      this.externalApiService.updateCatalogsBySkus(
+        productSet.relations.map((relation) => relation.productSku),
+      );
+
+      return {
+        success: true,
+        message: `Product set ${setSku} status updated to ${status}`,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to update product set status for ${setSku}: ${error.message}`,
+        error.stack,
+      );
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to update product set status for ${setSku}`,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

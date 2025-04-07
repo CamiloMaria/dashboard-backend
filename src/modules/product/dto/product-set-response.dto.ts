@@ -38,6 +38,13 @@ export class ProductSetResponseDto {
   area: string;
 
   @ApiProperty({
+    description: 'Status',
+    example: true,
+    required: false,
+  })
+  status: boolean;
+
+  @ApiProperty({
     description: 'Creation date',
     example: '2023-06-15T12:00:00Z',
   })

@@ -18,9 +18,10 @@ export class ProductSetMapper {
     // Map basic properties
     dto.set_sku = set.set_sku;
     dto.title = sanitizeString(set.title);
-    dto.price = set.price;
-    dto.compare_price = set.compare_price;
+    dto.price = Number(set.price);
+    dto.compare_price = Number(set.compare_price);
     dto.area = sanitizeString(set.area);
+    dto.status = set.status === 1;
     dto.create_at = set.create_at;
     dto.update_at = set.update_at;
 
@@ -57,8 +58,8 @@ export class ProductSetMapper {
       ) {
         // Use the first catalog entry for pricing information
         const catalog = relation.product.catalogs[0];
-        dto.price = catalog.price;
-        dto.compare_price = catalog.compare_price;
+        dto.price = Number(catalog.price);
+        dto.compare_price = Number(catalog.compare_price);
       } else {
         dto.price = null;
         dto.compare_price = null;
