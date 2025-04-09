@@ -87,14 +87,17 @@ export class PermissionsService {
     updateUserPermissionsDto: UpdateUserPermissionsDto,
   ): Promise<WebUsersPermissions> {
     try {
-      const userPermissions = await this.userPermissionsRepository.findOne({
+      let userPermissions = await this.userPermissionsRepository.findOne({
         where: { username: updateUserPermissionsDto.username },
       });
 
       if (!userPermissions) {
-        throw new NotFoundException(
-          `No permissions found for user: ${updateUserPermissionsDto.username}`,
-        );
+        // Create new permissions record if user doesn't exist in the table
+        userPermissions = this.userPermissionsRepository.create({
+          username: updateUserPermissionsDto.username,
+          allowedPages: [],
+          isActive: 1,
+        });
       }
 
       userPermissions.allowedPages = updateUserPermissionsDto.allowedPages;
@@ -107,10 +110,6 @@ export class PermissionsService {
 
       return updatedPermissions;
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
       this.logger.error(
         `Error updating allowed pages for user: ${updateUserPermissionsDto.username}: ${error.message}`,
         error.stack,
