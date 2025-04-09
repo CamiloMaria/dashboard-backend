@@ -22,122 +22,63 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+# Project Documentation
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 1. Introduction
 
-## Project setup
+- **Project Name**: Dashboard E-commerce Backend
+- **Brief Description**: This project is a backend service for an e-commerce dashboard, providing APIs for product management, order processing, and user authentication.
+- **Technologies Used**: NestJS, TypeScript, TypeORM, MySQL, OracleDB, Swagger
+- **Important Links**: [Repository](#), [Task Board](#), [External Documentation](#)
 
-```bash
-$ npm install
-```
+## 2. Quick Start Guide
 
-## Compile and run the project
+- **Prerequisites**: Node.js, Docker
+- **Cloning the Repository**: `git clone <repository-url>`
+- **Installing Dependencies**: `npm install`
+- **Environment Configuration**: Copy `.env.example` to `.env` and fill in the required values.
+- **Running the Project Locally**: `npm run start:dev`
+- **Database and Migrations**: Ensure databases are set up and run migrations if necessary.
+- **Useful Commands**: `npm run test`, `npm run build`
 
-```bash
-# development
-$ npm run start
+## 3. Project Structure
 
-# watch mode
-$ npm run start:dev
+- **Main Folders**: `src/`, `test/`, `modules/`, `config/`, `common/`,
+- **Naming Conventions**: Follows NestJS and TypeScript standards
+- **Core Modules**: Auth, Product, Order, Health
 
-# production mode
-$ npm run start:prod
-```
+## 4. Main Modules or Components
 
-## Product Module
+- **Auth Module**: Handles user authentication and authorization.
+- **Product Module**: Manages product data and related operations.
+- **Order Module**: Processes and manages orders.
+- **Health Module**: Provides system health checks.
 
-The Product module allows querying and retrieving products from the database with pagination and filtering capabilities. It provides endpoints for:
+## 5. Database
 
-- Retrieving all products with pagination
-- Filtering products by SKU, title, and material number
-- Retrieving a specific product by ID
+- **Diagram**: [Database Diagram](#)
+- **Main Tables**: `web_products`, `web_orders`, `users`
+- **Key Relationships**: Products to Orders, Users to Orders
+- **Migrations and Seeds**: Managed via TypeORM
 
-### API Endpoints
+## 6. Environments
 
-- `GET /products` - Retrieves all products with pagination and search options
+- **Local**: Development environment with local database
+- **Development**: Staging environment for testing
+- **Production**: Live environment with production database
+- **Differences**: Configuration files and environment variables differ
 
-  - Query parameters:
-    - `page` - Page number (default: 1)
-    - `limit` - Items per page (default: 10)
-    - `sku` - Filter by exact SKU match
-    - `title` - Filter by partial title match
-    - `matnr` - Filter by exact material number match
+## 7. Best Practices
 
-- `GET /products/:id` - Retrieves a specific product by ID
+- **Code Conventions**: Follow NestJS and TypeScript guidelines
+- **Commit Structure**: Use conventional commits
+- **Branching Strategy**: Git Flow
+- **Tests**: Unit and integration tests using Jest
 
-## Run tests
+## 8. GitLab Repository
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-
-# run only product module tests
-$ npm run test:product
-
-# run only product e2e tests
-$ npm run test:product:e2e
-```
-
-### Testing Strategy
-
-The project uses a comprehensive testing approach:
-
-1. **Unit Tests**: Test individual components in isolation with mocked dependencies
-
-   - Service tests: Verify business logic, database interactions, and error handling
-   - Controller tests: Verify API request/response handling
-
-2. **Integration Tests**: Test component interactions within a module
-
-   - Verify proper communication between controllers, services, and repositories
-
-3. **E2E Tests**: Test the API from an end-user perspective
-   - Validate API contracts, parameter validation, and response structure
-   - Test search functionality and pagination
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **GitLab Repository**: [Dashboard E-commerce Backend](https://gitlab.com/tienda-online-teams/dashboard-e-commerce-backend)
+- **Old Backend Branch**: `develop`
+- **Dashboard Frontend (Old Backend)**: [Dashboard](https://shopi.plazalama.com/dashboard) (No longer available, any changes must be applied in the new dashboard backend and frontend)
+- **New Dashboard Branch**: `new-dashboard-migration`
+- **Dashboard Frontend (New Backend)**: [Dashboard v2](https://shopi.plazalama.com/dashboard/v2)
