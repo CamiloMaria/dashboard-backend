@@ -75,10 +75,6 @@
 - **Branching Strategy**: Git Flow
 - **Tests**: Unit and integration tests using Jest
 
-## 8. GitLab Repository
+## 8. Frontend GitHub Repository
 
-- **GitLab Repository**: [Dashboard E-commerce Backend](https://gitlab.com/tienda-online-teams/dashboard-e-commerce-backend)
-- **Old Backend Branch**: `develop`
-- **Dashboard Frontend (Old Backend)**: [Dashboard](https://shopi.plazalama.com/dashboard) (No longer available, any changes must be applied in the new dashboard backend and frontend)
-- **New Dashboard Branch**: `new-dashboard-migration`
-- **Dashboard Frontend (New Backend)**: [Dashboard v2](https://shopi.plazalama.com/dashboard/v2)
+- **Dashboard Frontend**: [Dashboard v2](https://github.com/CamiloMaria/dashboard-frontend)
